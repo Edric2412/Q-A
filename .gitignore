@@ -1,0 +1,9 @@
+qp/
+__pycache__/
+*.pyc
+.env
+uploads/
+temp/
+.vscode/
+.idea/
+*.log

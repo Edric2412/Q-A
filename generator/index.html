@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Paper Generator - KCLAS</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/generator/style.css">
+</head>
+<body class="font-inter bg-white min-h-screen">
+    
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-blue-100/50 shadow-sm">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                        K
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-blue-900">KCLAS</h1>
+                        <p class="text-xs text-blue-600">Question Paper Generator</p>
+                    </div>
+                </div>
+                
+                <nav class="hidden md:flex space-x-8">
+                    <a href="/generator" class="nav-link text-blue-700 hover:text-indigo-600 transition-all duration-300">Question Paper Generator</a>
+                    <a href="/evaluator" class="nav-link text-blue-700 hover:text-indigo-600 transition-all duration-300">Answer Paper Evaluation</a>
+                </nav>
+                
+                <button class="md:hidden p-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors duration-300" id="mobileMenuBtn">
+                    <i class="ri-menu-line text-xl text-blue-700"></i>
+                </button>
+            </div>
+            
+            <nav class="md:hidden mt-4 hidden" id="mobileMenu">
+                <div class="flex flex-col space-y-2">
+                    <a href="/generator" class="nav-link p-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors duration-300">Question Paper Generator</a>
+                    <a href="/evaluator" class="nav-link p-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors duration-300">Answer Paper Evaluation</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="pt-20">
+        
+        <section id="home" class="py-24 px-6 relative overflow-hidden">
+            <div class="absolute inset-0 opacity-20">
+                <div class="geometric-patterns">
+                    <div class="pattern pattern-1"></div>
+                    <div class="pattern pattern-2"></div>
+                    <div class="pattern pattern-3"></div>
+                    <div class="pattern pattern-4"></div>
+                </div>
+            </div>
+            
+            <div class="container mx-auto text-center relative z-10">
+                <div class="max-w-5xl mx-auto">
+                    <h1 class="text-5xl md:text-7xl font-bold text-blue-900 mb-8 leading-tight">
+                        Streamline Your 
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-800">
+                            Question Paper
+                        </span>
+                        Creation Process
+                    </h1>
+                    
+                    <p class="text-xl md:text-2xl text-blue-600 mb-12 max-w-3xl mx-auto leading-relaxed font-light">
+                        Generate professional question papers with ease using our intelligent platform designed for educators at Kumaraguru College of Liberal Arts & Science
+                    </p>
+                    
+                    <button class="btn-primary group inline-flex items-center space-x-3 px-10 py-5 text-xl" id="learnMoreBtn">
+                        <span>Get Started</span>
+                        <i class="ri-arrow-down-line group-hover:translate-y-1 transition-transform duration-300"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="configuration" class="py-20 px-6 bg-blue-50/30">
+            <div class="container mx-auto max-w-6xl">
+                <div class="premium-card p-10 rounded-3xl">
+                    <h2 class="text-4xl font-bold text-center text-blue-900 mb-12">
+                        Configure Your Question Paper
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-building-line mr-3 text-blue-600"></i>Department
+                            </label>
+                            <select id="department" class="form-select">
+                                <option value="">Select Department</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-calendar-line mr-3 text-blue-600"></i>Batch
+                            </label>
+                            <select id="batch" class="form-select">
+                                <option value="">Select Batch</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-book-line mr-3 text-blue-600"></i>Semester
+                            </label>
+                            <select id="semester" class="form-select">
+                                <option value="">Select Semester</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-bookmark-line mr-3 text-blue-600"></i>Subject
+                            </label>
+                            <select id="subject" class="form-select" disabled>
+                                <option value="">Select Semester First</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-file-text-line mr-3 text-blue-600"></i>Exam Type
+                            </label>
+                            <select id="examType" class="form-select">
+                                <option value="">Select Exam Type</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-bar-chart-line mr-3 text-blue-600"></i>Difficulty Level
+                            </label>
+                            <select id="difficulty" class="form-select">
+                                <option value="Easy">Easy</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="Hard">Hard</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-time-line mr-3 text-blue-600"></i>Month & Year
+                             </label>
+                             <div id="monthYearPicker" class="relative">
+                                 <input type="text" id="duration" class="form-input cursor-pointer" placeholder="Select Month & Year" readonly>
+                                 <div id="calendarDropdown" class="absolute z-10 bg-white border border-blue-200 rounded-lg shadow-lg mt-2 p-4 hidden">
+                                     <div id="yearView" class="grid grid-cols-3 gap-2 mb-4"></div>
+                                     <div id="monthView" class="grid grid-cols-3 gap-2 hidden"></div>
+                                     <button id="backToYearView" class="btn-secondary w-full mt-2 hidden">Back to Year Selection</button>
+                                 </div>
+                             </div>
+                         </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-user-line mr-3 text-blue-600"></i>Question Paper Setter
+                            </label>
+                            <input type="text" id="paperSetter" class="form-input" placeholder="Enter Name">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-user-line mr-3 text-blue-600"></i>HOD
+                            </label>
+                            <input type="text" id="hod" class="form-input" placeholder="Enter Name">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="upload" class="py-20 px-6">
+            <div class="container mx-auto max-w-6xl">
+                <div class="premium-card p-10 rounded-3xl">
+                    <h2 class="text-3xl font-bold text-center text-blue-900 mb-8">
+                        Upload Syllabus Document
+                    </h2>
+                    
+                    <div id="uploadArea" class="upload-area border-2 border-dashed border-blue-300 rounded-2xl p-12 text-center transition-all duration-300 hover:border-indigo-400 hover:bg-blue-50/50">
+                        <div class="upload-content">
+                            <i class="ri-upload-cloud-2-line text-5xl text-blue-500 mb-6"></i>
+                            <h3 class="text-xl font-semibold text-blue-900 mb-3">
+                                Drop your syllabus file here
+                            </h3>
+                            <p class="text-blue-600 mb-6 text-lg">
+                                Or click to browse and select files
+                            </p>
+                            <p class="text-sm text-blue-500">
+                                Supports: PDF files
+                            </p>
+                            <input type="file" id="fileInput" class="hidden" accept=".pdf">
+                        </div>
+                        
+                        <div id="filePreview" class="hidden">
+                            <div class="bg-white/70 rounded-2xl p-6 text-left shadow-lg border border-blue-100">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-4">
+                                        <i class="ri-file-pdf-line text-3xl text-red-500"></i>
+                                        <div>
+                                            <p id="fileName" class="font-semibold text-blue-900"></p>
+                                            <p id="fileSize" class="text-sm text-blue-600"></p>
+                                        </div>
+                                    </div>
+                                    <button id="removeFile" class="text-red-500 hover:text-red-700 transition-colors p-2 rounded-lg hover:bg-red-50">
+                                        <i class="ri-close-line text-xl"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <div class="bg-blue-100 rounded-full h-3">
+                                        <div id="uploadProgress" class="bg-gradient-to-r from-blue-600 to-indigo-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="unitsSelection" class="hidden mt-8">
+                        <h3 class="text-2xl font-bold text-center text-blue-900 mb-6">Select Units for Question Paper</h3>
+                        <div class="bg-blue-50/50 p-6 rounded-2xl border-2 border-blue-100">
+                            <div class="mb-4">
+                                <label class="flex items-center space-x-3 cursor-pointer">
+                                    <input type="checkbox" id="selectAllUnits" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                    <span class="font-semibold text-blue-800">Select All Units</span>
+                                </label>
+                            </div>
+                            <div id="unitsList" class="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <section class="py-12 px-6">
+            <div class="container mx-auto max-w-6xl text-center">
+                <button id="generateBtn" class="btn-generate disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <span class="btn-text">Generate Questions</span>
+                    <div class="btn-loading hidden">
+                        <div class="spinner"></div>
+                        <span>Generating...</span>
+                    </div>
+                    <div class="ripple-container"></div>
+                </button>
+            </div>
+        </section>
+
+        <section id="questionBuilder" class="py-20 px-6 bg-blue-50/30 hidden">
+            <div class="container mx-auto max-w-7xl">
+                <div class="premium-card p-10 rounded-3xl">
+                    <div class="flex items-center justify-between mb-10">
+                        <h2 class="text-4xl font-bold text-blue-900">Generated Questions</h2>
+                        <button id="addQuestionBtn" class="btn-secondary">
+                            <i class="ri-add-line mr-2"></i>Add Question
+                        </button>
+                    </div>
+                    
+                    <div id="questionsList" class="space-y-6">
+                        </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="exportOptions" class="py-12 px-6 hidden">
+            <div class="container mx-auto max-w-6xl">
+                <div class="premium-card p-10 rounded-3xl">
+                    <h2 class="text-3xl font-bold text-center text-blue-900 mb-10">
+                        Export Options
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <button class="export-btn" data-action="preview-paper">
+                            <i class="ri-eye-line text-3xl mb-3 text-blue-600"></i>
+                            <span>Preview Paper</span>
+                        </button>
+                        
+                        <button class="export-btn" data-action="download-paper">
+                            <i class="ri-download-line text-3xl mb-3 text-blue-600"></i>
+                            <span>Download Paper</span>
+                        </button>
+                        
+                        <button class="export-btn" data-action="preview-key">
+                            <i class="ri-key-line text-3xl mb-3 text-blue-600"></i>
+                            <span>Preview Answer Key</span>
+                        </button>
+                        
+                        <button class="export-btn" data-action="download-key">
+                            <i class="ri-file-download-line text-3xl mb-3 text-blue-600"></i>
+                            <span>Download Answer Key</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="questionModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="closeModal('questionModal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="text-2xl font-bold text-blue-900">Edit Question</h3>
+                <button onclick="closeModal('questionModal')" class="modal-close">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            
+            <form id="questionForm" class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Question Text</label>
+                    <textarea id="questionText" class="form-input" rows="4" placeholder="Enter question text..."></textarea>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="form-group">
+                        <label class="form-label">Question Type</label>
+                        <select id="questionType" class="form-select">
+                            <option value="MCQ">Multiple Choice</option>
+                            <option value="Short Answer">Short Answer</option>
+                            <option value="Long Essay">Long Essay</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Marks</label>
+                        <input type="number" id="questionMarks" class="form-input" min="1" max="50" placeholder="10">
+                    </div>
+                </div>
+                
+                <div id="mcqOptions" class="hidden">
+                    <label class="form-label">MCQ Options (One per line)</label>
+                    <textarea id="mcqOptionsText" class="form-input" rows="4" placeholder="A) Option 1&#x0a;B) Option 2&#x0a;C) Option 3&#x0a;D) Option 4"></textarea>
+                </div>
+            </form>
+            
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('questionModal')" class="btn-secondary">Cancel</button>
+                <button type="button" id="saveQuestion" class="btn-primary">Save Question</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="previewModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="closeModal('previewModal')"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 class="text-2xl font-bold text-blue-900">Question Paper Preview</h3>
+                <button onclick="closeModal('previewModal')" class="modal-close">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Question Paper Preview Section -->
+                <div id="paperPreview" class="bg-white p-10 rounded-2xl shadow-lg">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('previewModal')" class="btn-secondary">Close</button>
+                <button type="button" id="downloadPaperBtn" class="btn-primary" onclick="downloadPaper()">
+                    <i class="ri-download-line mr-2"></i>Download as HTML
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="answerKeyModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="closeModal('answerKeyModal')"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 class="text-2xl font-bold text-blue-900">Answer Key Preview</h3>
+                <button onclick="closeModal('answerKeyModal')" class="modal-close">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Answer Key Preview Section -->
+                <div id="answerKeyPreview" class="bg-white p-10 rounded-2xl shadow-lg">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('answerKeyModal')" class="btn-secondary">Close</button>
+                <button type="button" id="downloadKeyBtn" class="btn-primary" onclick="downloadAnswerKey()">
+                    <i class="ri-download-line mr-2"></i>Download as HTML
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="text-blue-900 text-xl font-medium mt-6">Processing...</p>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">
+        <p id="toastMessage"></p>
+    </div>
+
+    <script src="/generator/app.js"></script>
+</body>
+</html>
+

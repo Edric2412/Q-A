@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Answer Paper Evaluation - KCLAS</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Local Stylesheet -->
+    <!-- Local Stylesheet -->
+    <!-- <link rel="stylesheet" href="./style.css"> -->
+
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Remix Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="font-inter bg-gradient-to-br from-blue-50 via-white to-indigo-50 min-h-screen">
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-blue-100/50 shadow-sm">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div
+                        class="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                        K
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-blue-900">KCLAS</h1>
+                        <p class="text-xs text-blue-600">Answer Paper Evaluation</p>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <nav class="hidden md:flex space-x-8">
+                    <a href="/generator"
+                        class="nav-link text-blue-700 hover:text-indigo-600 transition-all duration-300">Question Paper
+                        Generator</a>
+                    <a href="/evaluator"
+                        class="nav-link text-blue-700 hover:text-indigo-600 transition-all duration-300">Answer Paper
+                        Evaluation</a>
+                </nav>
+
+                <!-- Mobile Menu Button -->
+                <button class="md:hidden p-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors duration-300"
+                    id="mobileMenuBtn">
+                    <i class="ri-menu-line text-xl text-blue-700"></i>
+                </button>
+            </div>
+
+            <!-- Mobile Navigation -->
+            <nav class="md:hidden mt-4 hidden" id="mobileMenu">
+                <div class="flex flex-col space-y-2">
+                    <a href="/generator"
+                        class="nav-link p-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors duration-300">Question
+                        Paper Generator</a>
+                    <a href="/evaluator"
+                        class="nav-link p-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors duration-300">Answer
+                        Paper Evaluation</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-20">
+
+        <section id="home" class="py-24 px-6 relative overflow-hidden">
+            <div class="absolute inset-0 opacity-20">
+                <div class="geometric-patterns">
+                    <div class="pattern pattern-1"></div>
+                    <div class="pattern pattern-2"></div>
+                    <div class="pattern pattern-3"></div>
+                    <div class="pattern pattern-4"></div>
+                </div>
+            </div>
+
+            <div class="container mx-auto text-center relative z-10">
+                <div class="max-w-5xl mx-auto">
+                    <h1 class="text-5xl md:text-7xl font-bold text-blue-900 mb-8 leading-tight">
+                        Streamline Your
+                        <span
+                            class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-800">
+                            Answer Paper
+                        </span>
+                        Evaluation Process
+                    </h1>
+
+                    <p class="text-xl md:text-2xl text-blue-600 mb-12 max-w-3xl mx-auto leading-relaxed font-light">
+                        Effortlessly evaluate answer papers with our intelligent platform designed for educators at
+                        Kumaraguru College of Liberal Arts & Science
+                    </p>
+
+                    <button class="btn-primary group inline-flex items-center space-x-3 px-10 py-5 text-xl"
+                        id="learnMoreBtn">
+                        <span>Get Started</span>
+                        <i class="ri-arrow-down-line group-hover:translate-y-1 transition-transform duration-300"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step Indicator -->
+        <section class="py-8 px-4">
+            <div class="container mx-auto max-w-6xl">
+                <div class="premium-card p-6 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div class="step-item step-active" data-step="1">
+                            <div class="step-circle">
+                                <i class="ri-settings-line"></i>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-title">Select Exam Details</div>
+                                <div class="step-subtitle">Configure evaluation settings</div>
+                            </div>
+                        </div>
+
+                        <div class="step-connector step-connector-active"></div>
+
+                        <div class="step-item" data-step="2">
+                            <div class="step-circle">
+                                <i class="ri-upload-cloud-line"></i>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-title">Upload Files</div>
+                                <div class="step-subtitle">Upload papers and answer keys</div>
+                            </div>
+                        </div>
+
+                        <div class="step-connector"></div>
+
+                        <div class="step-item" data-step="3">
+                            <div class="step-circle">
+                                <i class="ri-bar-chart-line"></i>
+                            </div>
+                            <div class="step-content">
+                                <div class="step-title">Evaluate & Review</div>
+                                <div class="step-subtitle">Review and finalize results</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 1: Select Exam Details -->
+        <section id="examDetails" class="py-8 px-4">
+            <div class="container mx-auto max-w-6xl">
+                <div class="premium-card p-8 rounded-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <i class="ri-settings-line mr-3 text-blue-600"></i>
+                        Select Exam Details
+                    </h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                        <!-- Department -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-building-line mr-2"></i>Department
+                            </label>
+                            <select id="department" class="form-select">
+                                <option value="">Select Department</option>
+                            </select>
+                        </div>
+
+                        <!-- Batch -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-calendar-line mr-2"></i>Batch
+                            </label>
+                            <select id="batch" class="form-select">
+                                <option value="">Select Batch</option>
+                            </select>
+                        </div>
+
+                        <!-- Semester -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-book-line mr-2"></i>Semester
+                            </label>
+                            <select id="semester" class="form-select">
+                                <option value="">Select Semester</option>
+                            </select>
+                        </div>
+
+                        <!-- Subject -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-bookmark-line mr-2"></i>Subject
+                            </label>
+                            <select id="subject" class="form-select" disabled>
+                                <option value="">Select Department First</option>
+                            </select>
+                        </div>
+
+                        <!-- Exam Type -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="ri-file-text-line mr-2"></i>Exam Type
+                            </label>
+                            <select id="examType" class="form-select">
+                                <option value="">Select Exam Type</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button id="fetchStudentsBtn" class="btn-primary disabled:opacity-50" disabled>
+                            <i class="ri-group-line mr-2"></i>
+                            Fetch Students
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Student List Table -->
+        <section id="studentListSection" class="py-8 px-4 hidden">
+            <div class="container mx-auto max-w-6xl">
+                <div class="premium-card p-8 rounded-2xl">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+                            <i class="ri-group-line mr-3 text-blue-600"></i>
+                            Student List
+                        </h2>
+                        <button id="uploadAnswerFilesBtn" class="btn-secondary" disabled>
+                            <i class="ri-upload-line mr-2"></i>
+                            Upload Answer Files
+                        </button>
+                    </div>
+
+                    <div class="overflow-hidden rounded-xl border border-blue-200/30">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white sticky top-0">
+                                    <tr>
+                                        <th class="px-6 py-4 text-left font-semibold">Roll Number</th>
+                                        <th class="px-6 py-4 text-left font-semibold">Student Name</th>
+                                        <th class="px-6 py-4 text-left font-semibold">Marks</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentTableBody" class="bg-white/50 backdrop-blur-sm">
+                                    <!-- Student rows will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: File Upload -->
+        <section id="fileUploadSection" class="py-8 px-4 hidden">
+            <div class="container mx-auto max-w-6xl">
+                <div class="premium-card p-8 rounded-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <i class="ri-upload-cloud-line mr-3 text-blue-600"></i>
+                        Upload Files
+                    </h2>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Question Paper Upload -->
+                        <div class="upload-card">
+                            <div class="upload-area" id="questionPaperUpload">
+                                <div class="upload-content text-center">
+                                    <i class="ri-file-pdf-line text-4xl text-blue-500 mb-4"></i>
+                                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Question Paper</h3>
+                                    <p class="text-gray-600 mb-4">Upload the question paper</p>
+                                    <p class="text-sm text-gray-500">PDF, DOC, DOCX files</p>
+                                    <input type="file" id="questionPaperInput" class="hidden" accept=".pdf,.doc,.docx">
+                                </div>
+                                <div class="upload-preview hidden" id="questionPaperPreview">
+                                    <!-- File preview will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Answer Key Upload -->
+                        <div class="upload-card">
+                            <div class="upload-area" id="answerKeyUpload">
+                                <div class="upload-content text-center">
+                                    <i class="ri-key-line text-4xl text-green-500 mb-4"></i>
+                                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Answer Key</h3>
+                                    <p class="text-gray-600 mb-4">Upload the answer key</p>
+                                    <p class="text-sm text-gray-500">PDF, DOC, DOCX files</p>
+                                    <input type="file" id="answerKeyInput" class="hidden" accept=".pdf,.doc,.docx">
+                                </div>
+                                <div class="upload-preview hidden" id="answerKeyPreview">
+                                    <!-- File preview will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Student Papers Upload -->
+                        <div class="upload-card">
+                            <div class="upload-area" id="studentPapersUpload">
+                                <div class="upload-content text-center">
+                                    <i class="ri-file-copy-line text-4xl text-purple-500 mb-4"></i>
+                                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Student Papers</h3>
+                                    <p class="text-gray-600 mb-4">Upload multiple answer papers</p>
+                                    <p class="text-sm text-gray-500">Multiple PDF, DOC, DOCX files</p>
+                                    <input type="file" id="studentPapersInput" class="hidden" accept=".pdf,.doc,.docx"
+                                        multiple>
+                                </div>
+                                <div class="upload-preview hidden" id="studentPapersPreview">
+                                    <!-- File preview will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end mt-6">
+                        <button id="startEvaluationBtn" class="btn-gradient disabled:opacity-50" disabled>
+                            <i class="ri-play-line mr-2"></i>
+                            Start Evaluation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Evaluation Progress -->
+        <section id="evaluationSection" class="py-8 px-4 hidden">
+            <div class="container mx-auto max-w-4xl">
+                <div class="premium-card p-8 rounded-2xl text-center">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center justify-center">
+                        <i class="ri-bar-chart-line mr-3 text-blue-600"></i>
+                        AI Evaluation in Progress
+                    </h2>
+
+                    <div class="evaluation-progress mb-6">
+                        <div class="progress-circle">
+                            <div class="progress-bar"></div>
+                            <div class="progress-text">0%</div>
+                        </div>
+                    </div>
+
+                    <p class="text-gray-600 mb-4">Processing answer papers using AI evaluation...</p>
+                    <p class="text-sm text-gray-500">This may take a few minutes depending on the number of papers.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Results Modal -->
+    <div id="resultsModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="closeModal('resultsModal')"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 class="text-xl font-bold text-gray-900 flex items-center">
+                    <i class="ri-bar-chart-line mr-2"></i>
+                    Evaluation Results
+                </h3>
+                <button onclick="closeModal('resultsModal')" class="modal-close">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold">Roll Number</th>
+                                <th class="px-4 py-3 text-left font-semibold">Student Name</th>
+                                <th class="px-4 py-3 text-center font-semibold">Q1</th>
+                                <th class="px-4 py-3 text-center font-semibold">Q2</th>
+                                <th class="px-4 py-3 text-center font-semibold">Q3</th>
+                                <th class="px-4 py-3 text-center font-semibold">Q4</th>
+                                <th class="px-4 py-3 text-center font-semibold">Q5</th>
+                                <th class="px-4 py-3 text-center font-semibold">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody" class="bg-white">
+                            <!-- Results will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="downloadExcelBtn" class="btn-secondary">
+                    <i class="ri-file-excel-line mr-2"></i>Download Excel
+                </button>
+                <button type="button" id="saveResultsBtn" class="btn-primary">
+                    <i class="ri-save-line mr-2"></i>Save Results
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="successToast" class="toast toast-success hidden">
+        <div class="toast-content">
+            <i class="ri-check-line mr-2"></i>
+            <span id="successMessage">Operation completed successfully!</span>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="errorToast" class="toast toast-error hidden">
+        <div class="toast-content">
+            <i class="ri-error-warning-line mr-2"></i>
+            <span id="errorMessage">An error occurred!</span>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="text-blue-900 text-lg mt-4" id="loadingMessage">Processing...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="app.js"></script>
+</body>
+
+</html>
