@@ -7,6 +7,7 @@ python-multipart
 google-generativeai
 pdfplumber
 langchain
+langchain-text-splitters
 langchain-google-genai
 pydantic-settings
 passlib
@@ -21,3 +22,6 @@ llama-cpp-python
 python-docx
 motor
 openpyxl
+pandas
+tenacity
+pymongo

@@ -1,0 +1,40 @@
+/* KCLAS Global Styles */
+@import "tailwindcss";
+
+:root {
+  --font-inter: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-inter);
+  background: #ffffff;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Remove default link underlines for the app */
+a {
+  text-decoration: none;
+}
+
+/* Hidden utility */
+.hidden {
+  display: none !important;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
