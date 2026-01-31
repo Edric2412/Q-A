@@ -494,6 +494,10 @@ async def evaluate(
     answer_key_path: str = Form(...),
     student_papers_paths_str: str = Form(..., alias="student_papers_paths"),
     exam_type: str = Form("CIA"),
+    subject: str = Form(None),
+    batch: str = Form(None),
+    department: str = Form(None),
+    semester: str = Form(None),
 ):
     async def evaluation_stream():
         try:
@@ -520,7 +524,7 @@ async def evaluate(
                 s_answers = parse_student_text(s_text)
                 
                 marks = {}
-                feedback = {}  # NEW: Store feedback per question
+                feedback = {}  # Store feedback per question
                 total_score = 0
                 master_batch = []
 
@@ -577,14 +581,19 @@ async def evaluate(
                         feedback[f"Q{qid}"] = result_data.get("feedback", "")
                         total_score += final_val
                 
-                # --- Finish Student (Include Feedback) ---
+                # --- Finish Student (Include Feedback & Metadata) ---
                 res = {
                     "roll_no": roll_no, 
                     "exam_id": exam_id, 
                     "marks": marks, 
-                    "feedback": feedback,  # NEW: Include feedback
+                    "feedback": feedback,
                     "total": round(total_score, 2), 
-                    "timestamp": datetime.datetime.utcnow().isoformat()
+                    "timestamp": datetime.datetime.utcnow().isoformat(),
+                    # Store Metadata
+                    "subject": subject,
+                    "batch": batch,
+                    "department": department,
+                    "semester": semester
                 }
                 await db.evaluations.insert_one(res)
                 res["_id"] = str(res["_id"])
@@ -610,6 +619,42 @@ async def update_marks(request: MarkUpdateRequest):
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(500, detail=str(e))
+
+@evaluator_app.get("/history")
+async def get_evaluation_history():
+    try:
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$exam_id",
+                    "student_count": {"$sum": 1},
+                    "avg_score": {"$avg": "$total"},
+                    "latest_date": {"$max": "$timestamp"},
+                    "subject": {"$first": "$subject"},
+                    "batch": {"$first": "$batch"},
+                    "department": {"$first": "$department"}
+                }
+            },
+            {"$sort": {"latest_date": -1}},
+            {"$limit": 50}
+        ]
+        history = await db.evaluations.aggregate(pipeline).to_list(None)
+        return history
+    except Exception as e:
+        logger.error(f"Error fetching evaluation history: {e}")
+        return []
+
+@evaluator_app.get("/results/{exam_id}")
+async def get_evaluation_results(exam_id: str):
+    try:
+        results = await db.evaluations.find({"exam_id": exam_id}).to_list(None)
+        # Serialize ObjectIds
+        for r in results:
+            r["_id"] = str(r["_id"])
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching results for {exam_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @evaluator_app.get("/export-excel")
 async def export_excel(exam_id: str):

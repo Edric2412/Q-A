@@ -14,6 +14,7 @@ import {
     Student,
     EvaluationResult,
 } from "@/lib/api";
+import { RibbonBackground } from "@/components/RibbonBackground";
 import "./evaluate.css";
 
 export default function EvaluatePage() {
@@ -170,6 +171,10 @@ export default function EvaluatePage() {
                     answer_key_path: uploadResult.files.answer_key,
                     student_papers_paths: uploadResult.files.student_papers,
                     exam_type: examType,
+                    subject: subject,
+                    batch: batch,
+                    department: department,
+                    semester: semester,
                 },
                 (event) => {
                     if (event.type === "progress") {
@@ -206,6 +211,9 @@ export default function EvaluatePage() {
                     <span>{toastMessage}</span>
                 </div>
             )}
+
+            {/* Ribbon Background */}
+            <RibbonBackground variant="teal" />
 
             <div className="evaluate-container">
                 {/* Header */}

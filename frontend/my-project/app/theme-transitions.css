@@ -1,0 +1,27 @@
+/* ============================================
+   SMOOTH THEME TRANSITIONS
+   ============================================ */
+
+html {
+    transition: background-color 0.4s ease;
+}
+
+html * {
+    transition: background-color 0.4s ease,
+        background 0.4s ease,
+        border-color 0.4s ease,
+        color 0.4s ease,
+        box-shadow 0.4s ease,
+        opacity 0.4s ease;
+}
+
+/* Preserve existing transitions on hover/focus */
+html *:is(:hover, :focus, :active) {
+    transition: background-color 0.4s ease,
+        background 0.4s ease,
+        border-color 0.4s ease,
+        color 0.4s ease,
+        box-shadow 0.4s ease,
+        opacity 0.4s ease,
+        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -47,6 +47,27 @@ export interface EvaluationResult {
     timestamp: string;
 }
 
+
+export interface SavedPaper {
+    _id?: string;
+    subject: string;
+    exam_type: string;
+    difficulty: string;
+    created_at: string;
+    paper?: GeneratedPaper;
+}
+
+export interface EvaluationHistoryItem {
+    _id: string;
+    student_count: number;
+    avg_score: number;
+    latest_date: string;
+    // New metadata fields
+    subject?: string;
+    batch?: string;
+    department?: string;
+}
+
 // --- Helper Functions ---
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
@@ -69,6 +90,16 @@ export async function login(email: string, password: string): Promise<Response> 
         redirect: "manual", // Handle redirect manually for SPA
     });
     return response;
+}
+
+export async function getSavedPapers(): Promise<SavedPaper[]> {
+    const response = await fetch(`${API_BASE}/saved-papers`);
+    return handleResponse<SavedPaper[]>(response);
+}
+
+export async function getSavedPaper(id: string): Promise<SavedPaper> {
+    const response = await fetch(`${API_BASE}/saved-paper/${id}`);
+    return handleResponse<SavedPaper>(response);
 }
 
 // --- Generator API ---
@@ -152,6 +183,16 @@ export async function getEvaluatorMetadata(): Promise<EvaluatorMetadata> {
     return handleResponse<EvaluatorMetadata>(response);
 }
 
+export async function getEvaluationHistory(): Promise<EvaluationHistoryItem[]> {
+    const response = await fetch(`${API_BASE}/evaluator/history`);
+    return handleResponse<EvaluationHistoryItem[]>(response);
+}
+
+export async function getEvaluationResults(examId: string): Promise<EvaluationResult[]> {
+    const response = await fetch(`${API_BASE}/evaluator/results/${examId}`);
+    return handleResponse<EvaluationResult[]>(response);
+}
+
 export interface GetStudentsPayload {
     department: string;
     batch: string;
@@ -184,6 +225,11 @@ export interface EvaluatePayload {
     answer_key_path: string;
     student_papers_paths: string[];
     exam_type?: string;
+    // New optional metadata
+    subject?: string;
+    batch?: string;
+    department?: string;
+    semester?: string;
 }
 
 export type StreamEventHandler = (event: { type: "progress"; value: number; message: string } | { type: "complete"; results: EvaluationResult[] } | { type: "error"; message: string }) => void;
@@ -195,6 +241,10 @@ export async function evaluate(payload: EvaluatePayload, onEvent: StreamEventHan
     formData.append("answer_key_path", payload.answer_key_path);
     formData.append("student_papers_paths", JSON.stringify(payload.student_papers_paths));
     if (payload.exam_type) formData.append("exam_type", payload.exam_type);
+    if (payload.subject) formData.append("subject", payload.subject);
+    if (payload.batch) formData.append("batch", payload.batch);
+    if (payload.department) formData.append("department", payload.department);
+    if (payload.semester) formData.append("semester", payload.semester);
 
     const response = await fetch(`${API_BASE}/evaluator/evaluate`, {
         method: "POST",

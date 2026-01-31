@@ -13,6 +13,8 @@ import {
     DepartmentDetails,
     Question,
 } from "@/lib/api";
+import { RibbonBackground } from "@/components/RibbonBackground";
+import { MathRenderer } from "@/components/MathRenderer";
 import "./generator.css";
 
 interface SyllabusUnit {
@@ -352,6 +354,9 @@ export default function GeneratorPage() {
                 </div>
             )}
 
+            {/* Ribbon Background */}
+            <RibbonBackground variant="blue" />
+
             <div className="generator-container">
                 {/* Header */}
                 <header className="generator-header">
@@ -622,8 +627,15 @@ export default function GeneratorPage() {
                                                 <i className="ri-delete-bin-line"></i>
                                             </button>
                                         </div>
-                                        <p className="question-text">{q.text}</p>
-                                        {q.answer && <p className="question-answer"><strong>Answer:</strong> {q.answer}</p>}
+                                        <div className="question-text">
+                                            <MathRenderer content={q.text} />
+                                        </div>
+                                        {q.answer && (
+                                            <div className="question-answer">
+                                                <strong>Answer:</strong>
+                                                <MathRenderer content={q.answer} />
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -655,8 +667,15 @@ export default function GeneratorPage() {
                                                 <i className="ri-delete-bin-line"></i>
                                             </button>
                                         </div>
-                                        <p className="question-text">{q.text}</p>
-                                        {q.answer && <p className="question-answer"><strong>Answer:</strong> {q.answer}</p>}
+                                        <div className="question-text">
+                                            <MathRenderer content={q.text} />
+                                        </div>
+                                        {q.answer && (
+                                            <div className="question-answer">
+                                                <strong>Answer:</strong>
+                                                <MathRenderer content={q.answer} />
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -688,8 +707,15 @@ export default function GeneratorPage() {
                                                 <i className="ri-delete-bin-line"></i>
                                             </button>
                                         </div>
-                                        <p className="question-text">{q.text}</p>
-                                        {q.answer && <p className="question-answer"><strong>Answer:</strong> {q.answer}</p>}
+                                        <div className="question-text">
+                                            <MathRenderer content={q.text} />
+                                        </div>
+                                        {q.answer && (
+                                            <div className="question-answer">
+                                                <strong>Answer:</strong>
+                                                <MathRenderer content={q.answer} />
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

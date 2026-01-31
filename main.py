@@ -3,10 +3,12 @@ import re
 import json
 import random
 import asyncio
+import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 import io
 import logging
+import time
 
 # Load environment variables
 load_dotenv()
@@ -17,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from typing import List, Dict, Any
+from bson import ObjectId
 
 import pdfplumber
 import bcrypt
@@ -70,6 +73,11 @@ For each MCQ, provide:
 - "options": An object with keys A, B, C, D and their option texts
 - "answer": The correct option letter (A, B, C, or D)
 
+**IMPORTANT**: For subjects like **Mathematics, Statistics, or Physics**:
+- The questions MUST be **numerical problem-solving** or **calculation-based**.
+- Avoid purely theoretical definitions or "What is" questions unless absolutely necessary.
+- For mathematical symbols, equations, or formulas, use standard LaTeX formatting enclosed in single dollar signs like $E=mc^2$. 
+
 Return a single, valid JSON object:
 {{"questions": [
   {{"question": "...", "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}}, "answer": "A"}},
@@ -86,7 +94,11 @@ Generate **{num_questions}** distinct {question_type} questions of {difficulty} 
 For each question, provide:
 - "question": The question text
 - "answer": A detailed marking scheme/rubric in this EXACT format:
-  * Multiple bullet points, each with:
+  * **For Math/Statistics**: Provide **detailed step-by-step calculations** to solve the problem.
+  * **For Theory**: Use multiple bullet points.
+  * **CRITICAL**: If the subject is Math or Statistics, generate **NUMERICAL PROBLEMS** that require solving, not just explaining concepts.
+  * For mathematical symbols, equations, or formulas, use standard LaTeX formatting enclosed in single dollar signs like $E=mc^2$.
+  * Format:
     - A specific assessment criterion (what the student should include)
     - The mark allocation for that point in parentheses, e.g. "(3)"
   * The marks should sum to {marks}
@@ -156,14 +168,80 @@ class DownloadRequest(BaseModel):
     questions: List[Question]
 
 # --- CORE FUNCTIONS ---
+import google.generativeai as genai
+
+# Configure GenAI (using same key as LangChain)
+if os.getenv("GOOGLE_API_KEY"):
+    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
 def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, str]]:
     try:
-        with pdfplumber.open(pdf_path) as pdf:
-            full_text = "".join(page.extract_text() for page in pdf.pages if page.extract_text())
-        unit_pattern = re.compile(r"((?:Unit|Module)[:\s]*\d+.*?(?=(?:Unit|Module)[:\s]*\d+|$))", re.DOTALL | re.IGNORECASE)
+        full_text = ""
+        # 1. Try Standard Text Extraction first
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                full_text = "".join(page.extract_text() or "" for page in pdf.pages)
+        except Exception as e:
+            logger.error(f"PDFPlumber failed: {e}")
+
+        # 2. Check if Scanned (OCR needed)
+        if len(full_text) < 100:
+            logger.warning("PDF appears to be scanned (text < 100 chars). Attempting Gemini OCR...")
+            try:
+                # Upload to Gemini
+                sample_file = genai.upload_file(path=pdf_path, display_name="Syllabus PDF")
+                logger.info(f"Uploaded file to Gemini: {sample_file.uri}")
+                
+                # Wait for processing
+                while sample_file.state.name == "PROCESSING":
+                    time.sleep(2)
+                    sample_file = genai.get_file(sample_file.name)
+                
+                if sample_file.state.name == "FAILED":
+                    raise ValueError("Gemini file processing failed")
+
+                # Prompt Gemini to extract text
+                model = genai.GenerativeModel('gemini-2.5-flash')
+                response = model.generate_content([
+                    "Extract the full text from this syllabus PDF. Preserve structure like 'Unit 1', 'Module 1'.", 
+                    sample_file
+                ])
+                full_text = response.text
+                logger.info("Gemini OCR successful")
+                
+                # Cleanup
+                genai.delete_file(sample_file.name)
+
+            except Exception as e:
+                logger.error(f"Gemini OCR Failed: {e}")
+                # Fallback to whatever we have (likely empty)
+        
+        # DEBUG: Save full extracted text to analyze
+        debug_path = BASE_DIR / "debug_last_pdf_extraction.txt"
+        with open(debug_path, "w", encoding="utf-8") as f:
+            f.write(full_text)
+        logger.info(f"Saved extracted text to {debug_path}")
+
+        logger.info(f"Extracted {len(full_text)} characters from PDF")
+        # Log first 500 chars to see header structure
+        logger.info(f"PDF Header Preview: {full_text[:500]}")
+
+        # Improved regex to handle "Unit 1", "Unit I", "Module 1", "Module I"
+        # Matches Unit/Module followed by:
+        # 1. Digits (\d+)
+        # 2. Roman Numerals ([IVX]+)
+        unit_pattern = re.compile(
+            r"((?:Unit|Module)[\s:-]+(?:(?:\d+)|(?:\b[IVX]+\b)).*?(?=(?:Unit|Module)[\s:-]+(?:(?:\d+)|(?:\b[IVX]+\b))|$))", 
+            re.DOTALL | re.IGNORECASE
+        )
+        
         matches = unit_pattern.findall(full_text)
+        
         if not matches:
+            logger.info("No explicit units found. Returning full syllabus.")
             return [{"unit": "Full Syllabus", "text": full_text}] if full_text.strip() else []
+            
+        logger.info(f"Found {len(matches)} units.")
         return [{"unit": f"Unit {idx+1}", "text": match.strip()} for idx, match in enumerate(matches) if match.strip()]
     except Exception as e:
         logger.error(f"Error reading PDF {pdf_path}: {e}")
@@ -192,7 +270,64 @@ def parse_json_output(response_text: str) -> List[Dict[str, str]]:
         else:
             json_str = json_match.group(1)
         
-        data = json.loads(json_str)
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Initial JSON parse failed: {e}. Attempting to fix backslashes...")
+            # Fix invalid escapes for LaTeX (e.g., \le -> \\le, \g -> \\g)
+            # Strategy: Find ANY backslash.
+            # If it's a valid JSON escape (e.g., \n, \", \u1234), keep it.
+            # If it's invalid (e.g., \alpha, \underline), escape it (\\alpha, \\underline).
+            
+            def escape_fixer(match):
+                # match.group(0) is the backslash and the following character
+                # Check if it looks like a valid escape
+                seq = match.group(0) # e.g. "\n" or "\u" or "\a"
+                
+                # Standard single-char escapes
+                if seq in [r'\"', r'\\', r'\/', r'\b', r'\f', r'\n', r'\r', r'\t']:
+                    return seq
+                    
+                # Unicode escape start (\u). We need to peek ahead 4 chars in a real parser,
+                # but here we can just regex for \uXXXX in the main pattern.
+                # If we matched just "\u", it means it wasn't followed by 4 hex digits (see pattern below).
+                return r"\\" + seq[1]
+
+            # Regex:
+            # 1. Match valid unicode escape: \\u[0-9a-fA-F]{4} -> Keep as is (Group 1)
+            # 2. Match backslash + any char: \\. -> Pass to callback to decide
+            # We use re.sub with a function.
+            
+            # Actually, simpler with re.sub using a smarter pattern:
+            # Pattern matches ANY backslash-plus-char sequence.
+            # But we prioritize valid unicode first.
+            
+            def replace_invalid_escapes(text):
+                # Pattern 1: Valid Unicode Escape (e.g., \u0020) - Capture it
+                # Pattern 2: Any other backslash sequence (e.g., \n, \", \a, \$, \u12 (incomplete)) - Capture it
+                pattern = r'(\\u[0-9a-fA-F]{4})|(\\.)'
+                
+                def sub_callback(m):
+                    if m.group(1): return m.group(1) # Valid Unicode, return as is
+                    
+                    val = m.group(2) # Backslash + char
+                    if val in [r'\"', r'\\', r'\/', r'\b', r'\f', r'\n', r'\r', r'\t']:
+                        return val # Valid standard escape, keep it
+                    
+                    # Otherwise (e.g. \$, \a, \u(without hex)), double the backslash
+                    return r'\\' + val[1]
+                
+                return re.sub(pattern, sub_callback, text)
+
+            fixed_json_str = replace_invalid_escapes(json_str)
+            try:
+                data = json.loads(fixed_json_str)
+                logger.info("JSON parse successful after fixing backslashes (Smart Fix).")
+            except json.JSONDecodeError as e2:
+                logger.error(f"Smart fix failed: {e2}")
+                logger.error(f"Snippet: {fixed_json_str[:200]}")
+                return []
+        
         questions = data.get("questions", [])
         if not isinstance(questions, list):
             logger.warning(f"'questions' is not a list: {type(questions)}")
@@ -230,12 +365,20 @@ def parse_json_output(response_text: str) -> List[Dict[str, str]]:
 async def run_batch_query(prompt: PromptTemplate, q_type: str, num: int, marks: int, context: str, subject: str, difficulty: str) -> List[Dict[str, str]]:
     if num <= 0: return []
     try:
+        logger.info(f"Generating {num} {q_type} questions...")
         chain = prompt | llm | StrOutputParser()
         response = await chain.ainvoke({
             "subject": subject, "num_questions": num, "question_type": q_type,
             "difficulty": difficulty, "marks": marks, "context": context
         })
-        return parse_json_output(response)
+        logger.info(f"Raw LLM Response for {q_type}: {response[:500]}...") # Log first 500 chars
+        
+        parsed = parse_json_output(response)
+        if not parsed:
+            logger.error(f"Failed to parse {q_type} response. Full response saved to debug log.")
+            logger.info(f"FULL FAILED RESPONSE ({q_type}): {response}")
+            
+        return parsed
     except Exception as e:
         logger.error(f"Error in batch query for {q_type}: {e}")
         return []
@@ -272,20 +415,106 @@ async def generate_question_paper(docs_content: tuple, subject: str, pattern: st
     return paper
 
 # --- DOCX UTILS ---
+# --- DOCX UTILS ---
+import latex2mathml.converter
+from lxml import etree
+
+try:
+    # Load transformation stylesheet
+    xslt_tree = etree.parse(str(BASE_DIR / "MML2OMML.xsl"))
+    xslt_transform = etree.XSLT(xslt_tree)
+except Exception as e:
+    logger.error(f"Failed to load MML2OMML.xsl: {e}")
+    xslt_transform = None
+
+def latex_to_omml(latex_str):
+    if not xslt_transform: return None
+    try:
+        # 1. Convert LaTeX to MathML (no XML header)
+        mathml = latex2mathml.converter.convert(latex_str)
+        # latex2mathml might produce <math ...> ... </math>
+        
+        # 2. Transform MathML to OMML
+        # We need to parse MathML string to Element
+        mathml_tree = etree.fromstring(mathml)
+        omml_tree = xslt_transform(mathml_tree)
+        
+        return omml_tree
+    except Exception as e:
+        logger.error(f"Math conversion failed for '{latex_str}': {e}")
+        return None
+
 def replace_text_in_paragraph(paragraph: Paragraph, context: Dict[str, str]):
     full_text = "".join(run.text for run in paragraph.runs)
     if '{{' not in full_text: return
+    
+    # Perform Replacement
     for key, value in context.items():
         if key in full_text: full_text = full_text.replace(key, str(value))
-    # Clear runs and add new text
+    
+    # Check if there is any LaTeX to render ($...$)
+    # Logic: 
+    # 1. Start fresh paragraph
+    # 2. Split full_text by regex matches
+    # 3. Add runs for text, add OMML for math
+    
+    # Regex for $...$ (non-greedy)
+    # Note: We assume single dollar signs are used as per prompt instructions
+    segments = re.split(r'(\$.*?\$)', full_text)
+    
+    # Clear existing runs
+    p = paragraph._p
     for run in paragraph.runs:
-        p = paragraph._p
         p.remove(run._r)
-    if full_text:
-        lines = full_text.split('\n')
-        for i, line in enumerate(lines):
-            if i > 0: paragraph.add_run().add_break()
-            paragraph.add_run(line)
+        
+    for segment in segments:
+        if not segment: continue
+        
+        # Check if math
+        if segment.startswith('$') and segment.endswith('$') and len(segment) > 2:
+            latex_content = segment[1:-1] # Strip $
+            omml_element = latex_to_omml(latex_content)
+            
+            if omml_element is not None:
+                # Insert OMML
+                # Using lxml element directly might fail if python-docx expects OxmlElement?
+                # Actually, python-docx uses lxml.etree internally as well.
+                # However, to be safe, we convert our lxml Element to string and parse with docx
+                from docx.oxml import parse_xml, OxmlElement
+                from docx.oxml.ns import nsdecls
+                
+                # Wrap in oMathPara if needed? Usually OMML returns oMath.
+                # Inline math should just be oMath.
+                # Let's inspect omml_element type. It is an lxml Element.
+                
+                # We need to append it to paragraph._p
+                # python-docx elements are lxml _Element wrappers.
+                # We can just append the lxml element directly if it matches?
+                
+                # Safer: Serialize and re-parse with docx's parse_xml to ensure correct class casting
+                omml_xml_str = etree.tostring(omml_element, encoding='unicode')
+                
+                # MML2OMML result usually includes namespaces.
+                # Sometimes we need to strip namespaces or ensure they match.
+                # But parse_xml logic usually handles it.
+                try:
+                    oxml_obj = parse_xml(omml_xml_str)
+                    paragraph._p.append(oxml_obj)
+                except Exception as ex:
+                    logger.error(f"Failed to insert OMML: {ex}")
+                    paragraph.add_run(segment) # Fallback
+            else:
+                 paragraph.add_run(segment) # Fallback text
+        else:
+            # Regular text
+            # Handle newlines if any
+            if '\n' in segment:
+                lines = segment.split('\n')
+                for i, line in enumerate(lines):
+                    if i > 0: paragraph.add_run().add_break()
+                    paragraph.add_run(line)
+            else:
+                paragraph.add_run(segment)
 
 def replace_placeholders(doc: Document, context: Dict[str, str]):
     for p in doc.paragraphs: replace_text_in_paragraph(p, context)
@@ -311,15 +540,22 @@ def parse_answer_and_marks(answer_text: str):
     lines = answer_text.strip().split('\n')
     cleaned_answer_lines = []
     formatted_marks_lines = []
-    mark_pattern = re.compile(r'\s*\((\d+)\s*marks?\)$')
+    # Updated pattern to match (3), (2.5), (3 marks), (2.5 marks), etc.
+    mark_pattern = re.compile(r'\s*\((\d+(?:\.\d+)?)(?:\s*marks?)?\)\s*$', re.IGNORECASE)
 
     for line in lines:
         line = line.strip()
+        # Skip Keywords line from marks
+        if line.startswith('**Keywords') or line.startswith('Keywords'):
+            cleaned_answer_lines.append(line)
+            formatted_marks_lines.append("")
+            continue
+            
         match = mark_pattern.search(line)
         if match:
             mark_number = match.group(1)
             formatted_marks_lines.append(f"({mark_number})")
-            cleaned_line = mark_pattern.sub('', line)
+            cleaned_line = mark_pattern.sub('', line).strip()
             cleaned_answer_lines.append(cleaned_line)
         else:
             cleaned_answer_lines.append(line)
@@ -369,6 +605,31 @@ async def get_details_by_department(department: str):
         logger.error(f"Error fetching details for {department}: {e}")
         return []
 
+@app.get("/saved-papers")
+async def get_saved_papers():
+    try:
+        # Sort by newest first, limit to 50
+        papers = list(db["question_papers"].find({}, {"paper": 0}).sort("created_at", -1).limit(50))
+        # Serialize ObjectId
+        for p in papers:
+            p["_id"] = str(p["_id"])
+        return papers
+    except Exception as e:
+        logger.error(f"Error fetching saved papers: {e}")
+        return []
+
+@app.get("/saved-paper/{paper_id}")
+async def get_saved_paper(paper_id: str):
+    try:
+        paper = db["question_papers"].find_one({"_id": ObjectId(paper_id)})
+        if not paper:
+            raise HTTPException(status_code=404, detail="Paper not found")
+        paper["_id"] = str(paper["_id"])
+        return paper
+    except Exception as e:
+        logger.error(f"Error fetching paper {paper_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/upload-syllabus")
 async def upload_syllabus(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
@@ -392,6 +653,19 @@ async def generate_questions(request: Request):
         paper = await generate_question_paper(
             tuple(doc.page_content for doc in doc_chunks), data["subject"], exam_type, data["difficulty"]
         )
+        
+        # --- NEW: SAVE TO HISTORY ---
+        try:
+            db["question_papers"].insert_one({
+                "subject": data["subject"],
+                "exam_type": exam_type,
+                "difficulty": data["difficulty"],
+                "created_at": datetime.datetime.utcnow().isoformat(),
+                "paper": paper  # Store the full paper structure if needed, or just metadata
+            })
+        except Exception as e:
+            logger.error(f"Failed to save paper content: {e}")
+
         return {"question_paper": paper}
     except Exception as e:
         logger.error(f"Error: {e}")

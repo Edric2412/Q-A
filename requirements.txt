@@ -25,3 +25,5 @@ openpyxl
 pandas
 tenacity
 pymongo
+pytesseract
+latex2mathml
