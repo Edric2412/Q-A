@@ -25,6 +25,7 @@ This project provides a **dual-pipeline architecture** for modern educational as
 
 ### 2️⃣ **Answer Evaluator Pipeline**
 - 🔍 **AI-powered Answer Grading** with rubric-based assessment
+<<<<<<< HEAD
 - �️ **Gemini Vision PDF Grading** — direct handwritten answer evaluation
 - �📊 **Concept Mastery Analysis** across question sets
 - 📈 **Batch Student Evaluation** with Excel export
@@ -37,6 +38,12 @@ This project provides a **dual-pipeline architecture** for modern educational as
 - 🗺️ **Score Heatmap** — student × question color-coded grid
 - 🍩 **Pass/Fail Breakdown** — donut chart visualization
 
+=======
+- 📊 **Concept Mastery Analysis** across question sets
+- 📈 **Batch Student Evaluation** with Excel export
+- 💡 **Per-question Feedback** generation
+
+>>>>>>> bb9a31d6f9ae597a3b9dbd720fda5b6ccf3d1cd1
 ---
 
 ## 🏗️ Architecture
@@ -44,14 +51,24 @@ This project provides a **dual-pipeline architecture** for modern educational as
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Frontend (Next.js)                       │
+<<<<<<< HEAD
 │  Dashboard • Generator • Evaluator • Results • Analytics         │
+=======
+│  Dashboard • Generator • Evaluator • Results Visualization      │
+>>>>>>> bb9a31d6f9ae597a3b9dbd720fda5b6ccf3d1cd1
 └────────────────┬────────────────────────────────┬───────────────┘
                  │                                │
     ┌────────────▼───────────┐      ┌────────────▼──────────────┐
     │  Generator API (8000)  │      │  Evaluator API (/eval)    │
+<<<<<<< HEAD
     │  • Syllabus Upload     │      │  • Vision PDF Grading     │
     │  • RAG Generation      │      │  • AI Grading             │
     │  • DOCX Export         │      │  • Performance Analytics  │
+=======
+    │  • Syllabus Upload     │      │  • Answer Sheet OCR       │
+    │  • RAG Generation      │      │  • AI Grading             │
+    │  • DOCX Export         │      │  • Concept Analysis       │
+>>>>>>> bb9a31d6f9ae597a3b9dbd720fda5b6ccf3d1cd1
     └────────────┬───────────┘      └────────────┬──────────────┘
                  │                                │
                  └────────────┬───────────────────┘
@@ -66,11 +83,18 @@ This project provides a **dual-pipeline architecture** for modern educational as
 ```
 
 **Tech Stack:**
+<<<<<<< HEAD
 - **Backend:** FastAPI (Python 3.10+), Google Gemini 2.5 Flash / Gemini Vision
 - **Frontend:** Next.js 16, React 19, TypeScript, Recharts
 - **Database:** MongoDB with Motor (async driver)
 - **AI/ML:** LangChain, Google Generative AI Embeddings
 - **Charts:** Recharts (score distributions, per-question analysis, heatmaps)
+=======
+- **Backend:** FastAPI (Python 3.10+), Google Gemini 2.5 Flash
+- **Frontend:** Next.js 16, React 19, TypeScript, Tailwind CSS v4
+- **Database:** MongoDB with Motor (async driver)
+- **AI/ML:** LangChain, Google Generative AI Embeddings
+>>>>>>> bb9a31d6f9ae597a3b9dbd720fda5b6ccf3d1cd1
 - **Document Processing:** PDFPlumber, python-docx, latex2mathml, pytesseract
 
 ---
@@ -85,12 +109,17 @@ This project provides a **dual-pipeline architecture** for modern educational as
 - **Rubric Generation**: Automated marking schemes with keyword extraction
 
 ### 🔍 Answer Evaluation
+<<<<<<< HEAD
 - **Vision PDF Grading**: Direct handwritten PDF evaluation via Gemini Vision
+=======
+- **OCR Processing**: Handles scanned answer sheets
+>>>>>>> bb9a31d6f9ae597a3b9dbd720fda5b6ccf3d1cd1
 - **AI Grading**: Context-aware evaluation against model answers
 - **Concept Extraction**: Identifies knowledge gaps per student
 - **Bulk Processing**: Grade entire classes in minutes
 - **Excel Reports**: Downloadable results with per-question feedback
 
+<<<<<<< HEAD
 ### 📊 Performance Analytics
 - **Summary Stats**: Class average, highest/lowest score, pass rate
 - **Score Distribution**: Histogram showing mark ranges
@@ -104,6 +133,13 @@ This project provides a **dual-pipeline architecture** for modern educational as
 - **Dark/Light Mode**: Full theme support across all pages
 - **SVG Icon System**: Professional inline SVG icons (no emoji)
 - **Responsive Layout**: Mobile-first design with breakpoints
+=======
+### 🎨 Modern UI/UX
+- **Glassmorphism Design**: Premium dark mode interface
+- **3D Particle Backgrounds**: Three.js animated mesh waves
+- **Page Transitions**: Smooth framer-motion animations
+- **Responsive Layout**: Mobile-first design
+>>>>>>> bb9a31d6f9ae597a3b9dbd720fda5b6ccf3d1cd1
 
 ---
 
@@ -219,6 +255,7 @@ Access the application at `http://localhost:3000`
 
 ### Evaluation Flow
 
+<<<<<<< HEAD
 1. **Answer Upload** → PDF/DOCX student papers
 2. **Vision Grading (PDF)** → Gemini Vision reads handwritten answers directly
 3. **Text Grading (DOCX)** → Traditional OCR + text extraction fallback
@@ -226,6 +263,15 @@ Access the application at `http://localhost:3000`
 5. **Mark Allocation** → Per-question scoring with feedback
 6. **Analytics** → Score distributions, heatmaps, rankings
 7. **Export Generation** → Excel with per-question feedback columns
+=======
+1. **Answer Upload** → OCR with Tesseract/Gemini
+2. **Answer Matching** → Extract student responses per question
+3. **Rubric Parsing** → Tokenize marking scheme
+4. **AI Evaluation** → Gemini compares answer to rubric
+5. **Mark Allocation** → Per-criterion scoring
+6. **Concept Extraction** → Identify assessed skills
+7. **Export Generation** → Excel with pivot tables
+>>>>>>> bb9a31d6f9ae597a3b9dbd720fda5b6ccf3d1cd1
 
 ---
 
@@ -235,7 +281,10 @@ Access the application at `http://localhost:3000`
 QP/
 ├── main.py                  # Generator API
 ├── main2.py                 # Evaluator API
+<<<<<<< HEAD
 ├── vision_utils.py          # Gemini Vision grading utilities
+=======
+>>>>>>> bb9a31d6f9ae597a3b9dbd720fda5b6ccf3d1cd1
 ├── requirements.txt         # Python dependencies
 ├── templates/               # DOCX templates
 │   ├── CIA_QP_template.docx
@@ -244,6 +293,7 @@ QP/
 ├── frontend/
 │   └── my-project/
 │       ├── app/            # Next.js pages
+<<<<<<< HEAD
 │       │   ├── dashboard/       # Main dashboard
 │       │   ├── generator/       # Question paper generator
 │       │   ├── evaluate/        # Answer evaluator
@@ -252,6 +302,14 @@ QP/
 │       │   └── paper/           # Question paper viewer
 │       ├── components/     # React components
 │       └── lib/            # API client & utilities
+=======
+│       │   ├── dashboard/
+│       │   ├── generator/
+│       │   ├── evaluate/
+│       │   └── results/
+│       ├── components/     # React components
+│       └── public/         # Static assets
+>>>>>>> bb9a31d6f9ae597a3b9dbd720fda5b6ccf3d1cd1
 └── uploads/                # Temporary file storage
 ```
 
