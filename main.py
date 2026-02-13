@@ -16,10 +16,9 @@ load_dotenv()
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from typing import List, Dict, Any
-from bson import ObjectId
+
+import database as db_module
 
 import pdfplumber
 import bcrypt
@@ -53,15 +52,6 @@ except Exception as e:
     logger.error(f"Failed to initialize Google AI Models. Error: {e}")
     raise
 
-try:
-    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
-    client.admin.command('ping')
-    db = client["QP"]
-    logger.info("MongoDB connection established successfully")
-except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-    logger.error(f"Failed to connect to MongoDB: {e}")
-    raise
 
 # --- PROMPT ENGINEERING ---
 MCQ_BATCH_PROMPT = PromptTemplate.from_template("""
@@ -118,6 +108,17 @@ Return a single, valid JSON object:
 
 # --- FASTAPI APP SETUP ---
 app = FastAPI(title="Question Paper Generator", version="2.0")
+
+# --- Database lifecycle (PostgreSQL via asyncpg) ---
+@app.on_event("startup")
+async def startup():
+    await db_module.init_db()
+    logger.info("PostgreSQL connection pool ready")
+
+@app.on_event("shutdown")
+async def shutdown():
+    await db_module.close_db()
+    logger.info("PostgreSQL connection pool closed")
 
 # CORS Configuration for Next.js Frontend
 app.add_middleware(
@@ -571,9 +572,8 @@ async def read_root():
 @app.post("/login")
 async def login(request: Request, email: str = Form(...), password: str = Form(...)):
     try:
-        user = db["users"].find_one({"email": email})
+        user = await db_module.find_user_by_email(email)
         if user and bcrypt.checkpw(password.encode('utf-8'), user["password"].encode('utf-8')):
-            # Return redirect for Next.js to detect successful login
             return RedirectResponse(url="/dashboard", status_code=303)
         raise HTTPException(status_code=401, detail="Invalid credentials")
     except HTTPException:
@@ -583,24 +583,13 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
 
 @app.get("/departments")
 async def get_departments():
-    return list(db["departments"].find({}, {"_id": 0, "value": 1, "label": 1}))
+    return await db_module.get_departments()
 
 @app.get("/details/{department}")
 async def get_details_by_department(department: str):
     try:
-        # 1. Clean the input (remove %20 artifacts if any remain, though FastAPI handles most)
         dept_clean = department.strip()
-        
-        # 2. Try Exact Match first
-        details = list(db["details"].find({"department": dept_clean}, {"_id": 0}))
-        
-        # 3. If no results, try Case-Insensitive Regex Match
-        # This solves issues like "visual communication" vs "Visual Communication"
-        if not details:
-            regex_query = {"department": {"$regex": f"^{re.escape(dept_clean)}$", "$options": "i"}}
-            details = list(db["details"].find(regex_query, {"_id": 0}))
-            
-        return details
+        return await db_module.get_details_by_department(dept_clean)
     except Exception as e:
         logger.error(f"Error fetching details for {department}: {e}")
         return []
@@ -608,12 +597,7 @@ async def get_details_by_department(department: str):
 @app.get("/saved-papers")
 async def get_saved_papers():
     try:
-        # Sort by newest first, limit to 50
-        papers = list(db["question_papers"].find({}, {"paper": 0}).sort("created_at", -1).limit(50))
-        # Serialize ObjectId
-        for p in papers:
-            p["_id"] = str(p["_id"])
-        return papers
+        return await db_module.get_saved_papers()
     except Exception as e:
         logger.error(f"Error fetching saved papers: {e}")
         return []
@@ -621,10 +605,9 @@ async def get_saved_papers():
 @app.get("/saved-paper/{paper_id}")
 async def get_saved_paper(paper_id: str):
     try:
-        paper = db["question_papers"].find_one({"_id": ObjectId(paper_id)})
+        paper = await db_module.get_saved_paper(int(paper_id))
         if not paper:
             raise HTTPException(status_code=404, detail="Paper not found")
-        paper["_id"] = str(paper["_id"])
         return paper
     except Exception as e:
         logger.error(f"Error fetching paper {paper_id}: {e}")
@@ -654,15 +637,14 @@ async def generate_questions(request: Request):
             tuple(doc.page_content for doc in doc_chunks), data["subject"], exam_type, data["difficulty"]
         )
         
-        # --- NEW: SAVE TO HISTORY ---
+        # --- SAVE TO HISTORY (PostgreSQL) ---
         try:
-            db["question_papers"].insert_one({
-                "subject": data["subject"],
-                "exam_type": exam_type,
-                "difficulty": data["difficulty"],
-                "created_at": datetime.datetime.utcnow().isoformat(),
-                "paper": paper  # Store the full paper structure if needed, or just metadata
-            })
+            await db_module.insert_question_paper(
+                subject=data["subject"],
+                exam_type=exam_type,
+                difficulty=data["difficulty"],
+                paper=paper
+            )
         except Exception as e:
             logger.error(f"Failed to save paper content: {e}")
 

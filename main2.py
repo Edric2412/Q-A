@@ -12,7 +12,7 @@ from pathlib import Path
 # --- Third Party Imports ---
 import docx
 import pdfplumber
-import motor.motor_asyncio
+import database as db_module
 import google.generativeai as genai
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment
@@ -43,10 +43,8 @@ evaluator_app.add_middleware(
 )
 
 # --- Database ---
-# Security: Use env var for production, localhost fallback for dev
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
-db = client.QP
+# PostgreSQL via asyncpg (see database.py)
+# The pool is initialized when main.py starts (shared via db_module)
 
 # --- AI Models ---
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
@@ -397,63 +395,24 @@ async def get_metadata():
     dependent dropdowns (Batch, Semester, Subject).
     """
     try:
-        # Fetch Departments
-        departments = await db.departments.find({}, {"_id": 0}).to_list(None)
-        
-        # FIX: Fetch Details (Batch/Sem info) as well
-        details = await db.details.find({}, {"_id": 0}).to_list(None)
-        
-        return {
-            "departments": departments, 
-            "details": details  # <-- This is the missing piece the frontend needed
-        } 
+        return await db_module.get_metadata()
     except Exception as e:
         logger.error(f"Metadata Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @evaluator_app.post("/get-students")
-async def get_students(request: StudentListRequest):
+async def get_students_endpoint(request: StudentListRequest):
     try:
         dept = request.department.strip()
         batch = request.batch.strip()
         
         logger.info(f"Looking for Students -> Dept: '{dept}', Batch: '{batch}'")
 
-        # 1. Try Exact Match (e.g., "2023 - 2026")
-        query = {"department": dept, "batch": batch}
-        students_doc = await db.students.find_one(query)
-        
-        # 2. Fallback: Try removing spaces from batch (e.g., "2023-2026")
-        if not students_doc:
-            tight_batch = batch.replace(" ", "")
-            logger.info(f"Exact match failed. Trying tight batch '{tight_batch}'")
-            students_doc = await db.students.find_one({
-                "department": dept, 
-                "batch": tight_batch
-            })
+        students = await db_module.get_students(dept, batch)
 
-        # 3. Fallback: Try Adding spaces to batch (e.g., "2023 - 2026")
-        if not students_doc:
-            if "-" in batch and " - " not in batch:
-                spaced_batch = batch.replace("-", " - ")
-                logger.info(f"Tight match failed. Trying spaced batch '{spaced_batch}'")
-                students_doc = await db.students.find_one({
-                    "department": dept, 
-                    "batch": spaced_batch
-                })
-
-        # 4. Fallback: Case-Insensitive Dept Match
-        if not students_doc:
-             logger.info("Batch match failed. Trying regex for Department...")
-             students_doc = await db.students.find_one({
-                "department": {"$regex": f"^{re.escape(dept)}$", "$options": "i"},
-                "batch": batch
-             })
-
-        if students_doc:
-            logger.info(f"✅ Found {len(students_doc.get('students', []))} students.")
-            students_doc["_id"] = str(students_doc["_id"])
-            return {"students": students_doc.get("students", []), "exam_id": request.exam_id}
+        if students:
+            logger.info(f"✅ Found {len(students)} students.")
+            return {"students": students, "exam_id": request.exam_id}
         else:
             logger.warning("❌ No student record found in DB.")
             return {"students": [], "exam_id": request.exam_id}
@@ -656,8 +615,8 @@ async def evaluate(
                     "department": department,
                     "semester": semester
                 }
-                await db.evaluations.insert_one(res)
-                res["_id"] = str(res["_id"])
+                await db_module.insert_evaluation(res)
+                res["_id"] = str(res.get("_id", ""))
                 results.append(res)
                 yield json.dumps({"type": "progress", "value": int(((idx + 1) / total_students) * 100), "message": f"Graded {roll_no}"}) + "\n"
 
@@ -671,12 +630,12 @@ async def evaluate(
 @evaluator_app.post("/update-marks")
 async def update_marks(request: MarkUpdateRequest):
     try:
-        evaluation = await db.evaluations.find_one({"exam_id": request.exam_id, "roll_no": request.roll_no})
+        evaluation = await db_module.find_evaluation(request.exam_id, request.roll_no)
         if not evaluation: raise HTTPException(404, detail="Not found")
         q_key = request.question_num if request.question_num.startswith("Q") else f"Q{request.question_num}"
         evaluation["marks"][q_key] = request.new_mark
-        evaluation["total"] = sum(evaluation["marks"].values())
-        await db.evaluations.update_one({"_id": evaluation["_id"]}, {"$set": {"marks": evaluation["marks"], "total": evaluation["total"]}})
+        new_total = sum(evaluation["marks"].values())
+        await db_module.update_evaluation_marks(int(evaluation["_id"]), evaluation["marks"], new_total)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(500, detail=str(e))
@@ -684,23 +643,7 @@ async def update_marks(request: MarkUpdateRequest):
 @evaluator_app.get("/history")
 async def get_evaluation_history():
     try:
-        pipeline = [
-            {
-                "$group": {
-                    "_id": "$exam_id",
-                    "student_count": {"$sum": 1},
-                    "avg_score": {"$avg": "$total"},
-                    "latest_date": {"$max": "$timestamp"},
-                    "subject": {"$first": "$subject"},
-                    "batch": {"$first": "$batch"},
-                    "department": {"$first": "$department"}
-                }
-            },
-            {"$sort": {"latest_date": -1}},
-            {"$limit": 50}
-        ]
-        history = await db.evaluations.aggregate(pipeline).to_list(None)
-        return history
+        return await db_module.get_evaluation_history()
     except Exception as e:
         logger.error(f"Error fetching evaluation history: {e}")
         return []
@@ -708,11 +651,7 @@ async def get_evaluation_history():
 @evaluator_app.get("/results/{exam_id}")
 async def get_evaluation_results(exam_id: str):
     try:
-        results = await db.evaluations.find({"exam_id": exam_id}).to_list(None)
-        # Serialize ObjectIds
-        for r in results:
-            r["_id"] = str(r["_id"])
-        return results
+        return await db_module.get_evaluation_results(exam_id)
     except Exception as e:
         logger.error(f"Error fetching results for {exam_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -720,8 +659,8 @@ async def get_evaluation_results(exam_id: str):
 @evaluator_app.get("/export-excel")
 async def export_excel(exam_id: str):
     try:
-        evals = await db.evaluations.find({"exam_id": exam_id}).to_list(None)
-        if not evals: raise HTTPException(404, detail="No data found")
+        evals_raw = await db_module.get_evaluation_results(exam_id)
+        if not evals_raw: raise HTTPException(404, detail="No data found")
         
         wb = Workbook()
         ws = wb.active
@@ -731,7 +670,7 @@ async def export_excel(exam_id: str):
         header_font = Font(bold=True, color="FFFFFF")
         feedback_header_font = Font(bold=True, color="92400E")  # Amber text
         
-        first_entry = evals[0]
+        first_entry = evals_raw[0]
         q_keys = sorted(first_entry["marks"].keys(), key=lambda x: int(x[1:]) if x[1:].isdigit() else 999)
         
         # Build headers: Roll No, Q1, Q1_Feedback, Q2, Q2_Feedback, ..., Total
@@ -752,7 +691,7 @@ async def export_excel(exam_id: str):
                 cell.font = header_font
         
         # Write data rows
-        for idx, e in enumerate(evals, 2):
+        for idx, e in enumerate(evals_raw, 2):
             ws.cell(row=idx, column=1, value=e.get("roll_no", "Unknown"))
             
             col_idx = 2

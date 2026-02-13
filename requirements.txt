@@ -26,5 +26,7 @@ pandas
 tenacity
 pymongo
 pytesseract
+asyncpg
+psycopg2-binary
 latex2mathml
 

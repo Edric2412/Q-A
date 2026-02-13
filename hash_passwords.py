@@ -1,31 +1,37 @@
+"""
+hash_passwords.py — One-time utility to hash plaintext passwords in PostgreSQL.
+"""
+
 import os
-from pymongo import MongoClient
+import psycopg2
 import bcrypt
+from dotenv import load_dotenv
 
-# MongoDB connection string from environment variables or direct
-mongo_uri = os.getenv("MONGO_URI", "mongodb+srv://edricjsam:edricjsam@cluster0.xnfedd7.mongodb.net/")
-client = MongoClient(mongo_uri)
-db = client["QP"]
+load_dotenv()
 
-users_collection = db["users"]
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://edric:edric123@localhost:5433/qp")
+
+conn = psycopg2.connect(DATABASE_URL)
+cur = conn.cursor()
 
 print("Starting password hashing process...")
 
-for user in users_collection.find():
-    user_id = user["_id"]
-    current_password = user.get("password")
+cur.execute("SELECT id, email, password FROM users")
+users = cur.fetchall()
 
-    if current_password and not current_password.encode('utf-8').startswith(b'$2b$'):
-        print(f"Hashing password for user: {user.get('email', user_id)}")
-        # Hash the password
+for user_id, email, current_password in users:
+    if current_password and not current_password.startswith('$2b$'):
+        print(f"Hashing password for user: {email}")
         hashed_password = bcrypt.hashpw(current_password.encode('utf-8'), bcrypt.gensalt())
-        
-        # Update the user document with the hashed password
-        users_collection.update_one({'_id': user_id}, {'$set': {'password': hashed_password.decode('utf-8')}})
-        print(f"Password for user {user.get('email', user_id)} hashed and updated.")
-    elif current_password and current_password.startswith(b'$2b$'):
-        print(f"Password for user {user.get('email', user_id)} is already hashed. Skipping.")
+        cur.execute("UPDATE users SET password = %s WHERE id = %s", (hashed_password.decode('utf-8'), user_id))
+        print(f"Password for user {email} hashed and updated.")
+    elif current_password and current_password.startswith('$2b$'):
+        print(f"Password for user {email} is already hashed. Skipping.")
     else:
-        print(f"User {user.get('email', user_id)} has no password or an empty password. Skipping.")
+        print(f"User {email} has no password or an empty password. Skipping.")
+
+conn.commit()
+cur.close()
+conn.close()
 
 print("Password hashing process completed.")
