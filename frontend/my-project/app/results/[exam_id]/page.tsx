@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getEvaluationResults, EvaluationResult, getExcelExportUrl } from "@/lib/api";
-import { RibbonBackground } from "@/components/RibbonBackground";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import Link from "next/link";
-import "../../dashboard/dashboard.css";
+import "./results.css";
 
 export default function ViewResultsPage() {
     const params = useParams();
@@ -23,10 +22,34 @@ export default function ViewResultsPage() {
             .finally(() => setLoading(false));
     }, [exam_id]);
 
-    if (loading) return <div className="p-10 text-center text-white">Loading...</div>;
-    if (results.length === 0) return <div className="p-10 text-center text-white">No results found for this exam.</div>;
+    if (loading) {
+        return (
+            <div className="results-page">
+                <div className="results-loading">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    <p>Loading results...</p>
+                </div>
+            </div>
+        );
+    }
 
-    // Extract questions dynamically from the marks of the first student
+    if (results.length === 0) {
+        return (
+            <div className="results-page">
+                <div className="results-empty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <p>No results found for this exam.</p>
+                </div>
+            </div>
+        );
+    }
+
     const questionKeys = Object.keys(results[0].marks || {}).sort((a, b) => {
         const numA = parseInt(a.replace('Q', ''));
         const numB = parseInt(b.replace('Q', ''));
@@ -36,51 +59,39 @@ export default function ViewResultsPage() {
     const averageScore = results.reduce((acc, curr) => acc + curr.total, 0) / results.length;
 
     return (
-        <>
-            <RibbonBackground variant="combined" />
-
-            {/* Feedback Modal Overlay */}
+        <div className="results-page">
+            {/* Feedback Modal */}
             {feedbackModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setFeedbackModal(null)}>
-                    <div
-                        className="bg-gray-900 border border-white/10 rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Modal Header */}
-                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-                            <div>
-                                <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                                    <i className="ri-message-2-line text-blue-400"></i>
+                <div className="modal-overlay" onClick={() => setFeedbackModal(null)}>
+                    <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div className="modal-header-info">
+                                <h3>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                    </svg>
                                     Feedback for {feedbackModal.roll_no}
                                 </h3>
-                                <p className="text-sm text-white/50 mt-1">Detailed evaluation report</p>
+                                <p>Detailed evaluation report</p>
                             </div>
-                            <button
-                                onClick={() => setFeedbackModal(null)}
-                                className="text-white/40 hover:text-white transition p-2 rounded-lg hover:bg-white/10"
-                            >
-                                <i className="ri-close-line text-xl"></i>
-                            </button>
+                            <button className="modal-close-btn" onClick={() => setFeedbackModal(null)}>×</button>
                         </div>
-
-                        {/* Modal Body */}
-                        <div className="p-6 overflow-y-auto custom-scrollbar">
-                            <div className="flex justify-between items-center mb-6 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                                <span className="text-blue-200 font-medium">Total Score</span>
-                                <span className="text-2xl font-bold text-blue-400">{feedbackModal.total}</span>
+                        <div className="modal-body">
+                            <div className="modal-total-banner">
+                                <span className="label">Total Score</span>
+                                <span className="value">{feedbackModal.total}</span>
                             </div>
-
-                            <div className="space-y-4">
+                            <div className="feedback-list">
                                 {Object.entries(feedbackModal.marks).map(([qKey, mark]) => (
-                                    <div key={qKey} className="bg-white/5 rounded-lg p-4 border border-white/5 hover:border-white/10 transition">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="font-semibold text-white/90 bg-white/10 px-2 py-0.5 rounded text-sm">{qKey}</span>
-                                            <span className={`text-sm font-bold px-2 py-0.5 rounded ${mark > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                    <div key={qKey} className="feedback-item">
+                                        <div className="feedback-item-header">
+                                            <span className="feedback-q-label">{qKey}</span>
+                                            <span className={`feedback-mark ${mark > 0 ? 'positive' : 'zero'}`}>
                                                 {mark} marks
                                             </span>
                                         </div>
-                                        <p className="text-white/70 text-sm leading-relaxed">
-                                            {feedbackModal.feedback?.[qKey] || <span className="italic opacity-50">No specific feedback provided.</span>}
+                                        <p className="feedback-text">
+                                            {feedbackModal.feedback?.[qKey] || <span className="no-feedback">No specific feedback provided.</span>}
                                         </p>
                                     </div>
                                 ))}
@@ -90,94 +101,127 @@ export default function ViewResultsPage() {
                 </div>
             )}
 
-            <div className="dashboard-container">
-                <header className="dashboard-header">
-                    <div className="header-left">
-                        <Link href="/dashboard" className="flex items-center gap-2 text-white/80 hover:text-white transition">
-                            <i className="ri-arrow-left-line text-xl"></i>
-                            <span>Back to Dashboard</span>
-                        </Link>
-                    </div>
-                    <div className="header-right">
-                        <a href={getExcelExportUrl(exam_id)} className="logout-btn !bg-green-500/10 !text-green-400 !border-green-500/20 hover:!bg-green-500/20">
-                            <i className="ri-file-excel-2-line"></i>
-                            <span>Export Excel</span>
-                        </a>
-                        <ThemeToggle />
-                    </div>
-                </header>
+            {/* Header */}
+            <header className="results-header">
+                <div className="results-header-left">
+                    <Link href="/dashboard" className="back-link">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12" />
+                            <polyline points="12 19 5 12 12 5" />
+                        </svg>
+                        Back to Dashboard
+                    </Link>
+                </div>
+                <div className="results-header-right">
+                    <Link href={`/visualizations/${exam_id}`} className="export-excel-btn" style={{ color: "#818cf8", background: "rgba(99,102,241,0.1)", borderColor: "rgba(99,102,241,0.2)" }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+                            <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+                        </svg>
+                        Analytics
+                    </Link>
+                    <a href={getExcelExportUrl(exam_id)} className="export-excel-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                        Export Excel
+                    </a>
+                    <ThemeToggle />
+                </div>
+            </header>
 
-                <main className="dashboard-main !block px-8 py-10">
-                    <div className="w-full max-w-[95%] mx-auto">
-                        <div className="mb-8 flex justify-between items-end bg-white/5 p-6 rounded-2xl border border-white/10">
-                            <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">Evaluation Results</h1>
-                                <div className="flex gap-6 text-white/60 text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <i className="ri-hashtag text-blue-400"></i>
-                                        <span>Exam ID: {exam_id.substring(0, 8)}...</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <i className="ri-group-line text-purple-400"></i>
-                                        <span>{results.length} Students</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <i className="ri-bar-chart-line text-emerald-400"></i>
-                                        <span>Avg Score: {averageScore.toFixed(1)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <i className="ri-calendar-line text-orange-400"></i>
-                                        <span>{new Date(results[0].timestamp).toLocaleDateString()}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            {/* Main Content */}
+            <main className="results-main">
+                {/* Stats Banner */}
+                <div className="results-stats-banner">
+                    <div className="results-title">
+                        <h1>Evaluation Results</h1>
+                    </div>
+                    <div className="results-meta">
+                        <span className="meta-chip exam-id">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="4" y1="9" x2="20" y2="9" />
+                                <line x1="4" y1="15" x2="20" y2="15" />
+                                <line x1="10" y1="3" x2="8" y2="21" />
+                                <line x1="16" y1="3" x2="14" y2="21" />
+                            </svg>
+                            Exam ID: {exam_id.substring(0, 8)}...
+                        </span>
+                        <span className="meta-chip students">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                            </svg>
+                            {results.length} Students
+                        </span>
+                        <span className="meta-chip avg-score">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="20" x2="18" y2="10" />
+                                <line x1="12" y1="20" x2="12" y2="4" />
+                                <line x1="6" y1="20" x2="6" y2="14" />
+                            </svg>
+                            Avg Score: {averageScore.toFixed(1)}
+                        </span>
+                        <span className="meta-chip date">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                            </svg>
+                            {new Date(results[0].timestamp).toLocaleDateString()}
+                        </span>
+                    </div>
+                </div>
 
-                        <section className="dashboard-section overflow-hidden border border-white/10 rounded-xl bg-gray-900/50 backdrop-blur-sm">
-                            <div className="table-container max-h-[70vh] overflow-y-auto custom-scrollbar">
-                                <table className="activity-table w-full">
-                                    <thead className="sticky top-0 bg-gray-900/95 backdrop-blur z-20 shadow-lg">
-                                        <tr>
-                                            <th className="py-4 px-6 text-left text-xs font-semibold text-white/50 uppercase tracking-wider">Roll No</th>
-                                            {questionKeys.map(key => (
-                                                <th key={key} className="py-4 px-2 text-center text-xs font-semibold text-white/50 uppercase tracking-wider w-16">{key}</th>
-                                            ))}
-                                            <th className="py-4 px-6 text-right text-xs font-semibold text-white/50 uppercase tracking-wider">Total</th>
-                                            <th className="py-4 px-6 text-center text-xs font-semibold text-white/50 uppercase tracking-wider sticky right-0 bg-gray-900/95 z-20 shadow-[-10px_0_20px_-10px_rgba(0,0,0,0.5)]">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {results.map((res, idx) => (
-                                            <tr key={idx} className="hover:bg-white/5 transition-colors">
-                                                <td className="py-4 px-6 font-medium text-white/90 sticky left-0 bg-gray-900/95 md:bg-transparent z-10 border-r border-white/5 md:border-none">
-                                                    {res.roll_no}
-                                                </td>
-                                                {questionKeys.map(key => (
-                                                    <td key={key} className="py-4 px-2 text-center text-white/70">
-                                                        <span className={`inline-block px-2 py-1 rounded text-xs ${res.marks[key] > 0 ? 'bg-white/5' : 'text-white/30'}`}>
-                                                            {res.marks[key]}
-                                                        </span>
-                                                    </td>
-                                                ))}
-                                                <td className="py-4 px-6 text-right font-bold text-blue-400">{res.total}</td>
-                                                <td className="py-4 px-6 text-center sticky right-0 bg-gray-900/95 md:bg-transparent z-10 border-l border-white/5 md:border-none shadow-[-10px_0_20px_-10px_rgba(0,0,0,0.5)] md:shadow-none">
-                                                    <button
-                                                        onClick={() => setFeedbackModal(res)}
-                                                        className="px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-medium rounded-lg transition border border-blue-500/20 flex items-center gap-1.5 mx-auto"
-                                                    >
-                                                        <i className="ri-message-2-line"></i>
-                                                        Feedback
-                                                    </button>
-                                                </td>
-                                            </tr>
+                {/* Table Card */}
+                <div className="results-table-card">
+                    <div className="results-table-scroll">
+                        <table className="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Roll No</th>
+                                    {questionKeys.map(key => (
+                                        <th key={key} className="text-center">{key}</th>
+                                    ))}
+                                    <th className="text-right">Total</th>
+                                    <th className="text-center sticky-col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {results.map((res, idx) => (
+                                    <tr key={idx}>
+                                        <td className="roll-cell">{res.roll_no}</td>
+                                        {questionKeys.map(key => (
+                                            <td key={key} className="text-center">
+                                                <span className={`mark-cell ${res.marks[key] === 0 ? 'zero' : ''}`}>
+                                                    {res.marks[key]}
+                                                </span>
+                                            </td>
                                         ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </section>
+                                        <td className="text-right total-cell">{res.total}</td>
+                                        <td className="text-center sticky-col">
+                                            <button
+                                                onClick={() => setFeedbackModal(res)}
+                                                className="feedback-btn"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                                </svg>
+                                                Feedback
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                </main>
-            </div>
-        </>
+                </div>
+            </main>
+        </div>
     );
 }

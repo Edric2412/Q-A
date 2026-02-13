@@ -103,6 +103,9 @@ class MarkUpdateRequest(BaseModel):
 
 # --- Helper Functions ---
 
+
+from vision_utils import grade_pdf_with_vision
+
 def parse_docx_table_data(file_path: str, is_question_paper: bool = False) -> Dict[str, Dict]:
     doc = docx.Document(file_path)
     items = {} 
@@ -519,67 +522,125 @@ async def evaluate(
             total_students = len(student_paths)
             
             for idx, s_path in enumerate(student_paths):
-                s_text = extract_text(s_path)
-                roll_no = extract_student_identity(s_text) or f"UNKNOWN_{idx}"
-                s_answers = parse_student_text(s_text)
-                
-                marks = {}
-                feedback = {}  # Store feedback per question
-                total_score = 0
-                master_batch = []
+                # --- NEW: VISION GRADING FOR PDF ---
+                if s_path.lower().endswith(".pdf"):
+                    roll_no = f"Student_{idx+1}" # Fallback as we can't easily regex filename/text yet
+                    try:
+                        # Attempt to extract roll no from filename first
+                        # e.g. "2211046_Maths.pdf" -> "2211046"
+                        fname = os.path.basename(s_path)
+                        rn_match = re.search(r"(\d{5,})", fname)
+                        if rn_match: roll_no = rn_match.group(1)
+                    except: pass
 
-                # --- 1. LOCAL GRADING: MCQs (0 API COST) ---
-                for q_id in mcq_ids:
-                    if q_id in key_map:
-                        # Clean extraction to prevent whitespace errors
-                        raw_key = key_map[q_id]['text'].lstrip("- ").strip()
-                        raw_student = s_answers.get(q_id, "").lstrip("- ").strip()
-                        
-                        model_char = raw_key[0].upper() if raw_key else "X"
-                        student_char = raw_student[0].upper() if raw_student else "Y"
-                        
-                        if model_char == student_char:
-                            score = 1.0
-                            feedback[f"Q{q_id}"] = "Correct"
-                        else:
-                            score = 0.0
-                            feedback[f"Q{q_id}"] = f"Incorrect. Correct answer: {model_char}"
-                        
-                        marks[f"Q{q_id}"] = score
-                        total_score += score
-
-                # --- 2. AI PREPARATION: All Descriptive Questions (Master Batch) ---
-                all_descriptive_ids = short_ids + long_ids
-                
-                for q_id in all_descriptive_ids:
-                    if q_id in key_map:
-                        max_m = schema["short"]["marks"] if q_id in short_ids else schema["long"]["marks"]
-                        
-                        # Add to the single master list
-                        master_batch.append({
-                            "id": q_id,
-                            "question": qp_map.get(q_id, {}).get("text", ""),
-                            "rubric": key_map[q_id]["text"], 
-                            "student_ans": s_answers.get(q_id, "No Answer"),
-                            "max": max_m
-                        })
-
-                # --- 3. SINGLE API CALL PER STUDENT (Scores + Feedback) ---
-                if master_batch:
-                    logger.info(f"[EVALUATE] 🚀 Master Call for {roll_no}: Grading {len(master_batch)} questions")
+                    logger.info(f"[EVALUATE] ⚡ Vision Grading for {roll_no} (PDF)...")
                     
-                    # Call Gemini ONCE - returns {"qid": {"score": X, "feedback": "..."}}
-                    ai_results = await grade_batch_with_gemini(master_batch)
+                    # 1. Build Full Rubric String
+                    full_rubric_str = "--- MASTER RUBRIC ---\n"
                     
-                    # Distribute scores and feedback
-                    for item in master_batch:
-                        qid = item['id']
-                        result_data = ai_results.get(qid, {"score": 0.0, "feedback": ""})
+                    # Add MCQs (Optional: If we want AI to grade visual MCQs too)
+                    # For now, let's include everything
+                    all_ids = mcq_ids + short_ids + long_ids
+                    
+                    for q_id in all_ids:
+                        if q_id in key_map:
+                            q_text = qp_map.get(q_id, {}).get("text", "Question Text Missing")
+                            r_text = key_map[q_id]["text"]
+                            max_m = 1.0
+                            if q_id in short_ids: max_m = schema["short"]["marks"]
+                            elif q_id in long_ids: max_m = schema["long"]["marks"]
+                            
+                            full_rubric_str += f"\n[Q{q_id}] (Max: {max_m})\nQuestion: {q_text}\nRubric: {r_text}\n"
+
+                    # 2. Call Vision API
+                    # Use Gemini 2.0 Flash or 1.5 Flash (User asked for 3, but let's stick to stable/available)
+                    # We can try to respect user wish: 'gemini-2.0-flash-exp' or 'gemini-1.5-flash'
+                    # The library usually handles model aliases.
+                    vision_results = grade_pdf_with_vision(s_path, full_rubric_str, model_name="gemini-3-flash-preview")
+                    
+                    # 3. Process Results
+                    marks = {}
+                    feedback = {}
+                    total_score = 0
+                    
+                    if vision_results:
+                        for q_id, res in vision_results.items():
+                            # clean key "11" -> "Q11"
+                            key = q_id if q_id.startswith("Q") else f"Q{q_id}"
+                            
+                            score = float(res.get("score", 0.0))
+                            fb = res.get("feedback", "")
+                            
+                            marks[key] = score
+                            feedback[key] = fb
+                            total_score += score
+                    else:
+                        logger.error(f"Vision grading returned empty for {roll_no}")
+                        feedback["General"] = "Vision Grading Failed. Please check logs."
+
+                # --- OLD: TEXT GRADING FOR DOCX ---
+                else: 
+                    s_text = extract_text(s_path)
+                    roll_no = extract_student_identity(s_text) or f"UNKNOWN_{idx}"
+                    s_answers = parse_student_text(s_text)
+                    
+                    marks = {}
+                    feedback = {}  # Store feedback per question
+                    total_score = 0
+                    master_batch = []
+    
+                    # --- 1. LOCAL GRADING: MCQs (0 API COST) ---
+                    for q_id in mcq_ids:
+                        if q_id in key_map:
+                            # Clean extraction to prevent whitespace errors
+                            raw_key = key_map[q_id]['text'].lstrip("- ").strip()
+                            raw_student = s_answers.get(q_id, "").lstrip("- ").strip()
+                            
+                            model_char = raw_key[0].upper() if raw_key else "X"
+                            student_char = raw_student[0].upper() if raw_student else "Y"
+                            
+                            if model_char == student_char:
+                                score = 1.0
+                                feedback[f"Q{q_id}"] = "Correct"
+                            else:
+                                score = 0.0
+                                feedback[f"Q{q_id}"] = f"Incorrect. Correct answer: {model_char}"
+                            
+                            marks[f"Q{q_id}"] = score
+                            total_score += score
+    
+                    # --- 2. AI PREPARATION: All Descriptive Questions (Master Batch) ---
+                    all_descriptive_ids = short_ids + long_ids
+                    
+                    for q_id in all_descriptive_ids:
+                        if q_id in key_map:
+                            max_m = schema["short"]["marks"] if q_id in short_ids else schema["long"]["marks"]
+                            
+                            # Add to the single master list
+                            master_batch.append({
+                                "id": q_id,
+                                "question": qp_map.get(q_id, {}).get("text", ""),
+                                "rubric": key_map[q_id]["text"], 
+                                "student_ans": s_answers.get(q_id, "No Answer"),
+                                "max": max_m
+                            })
+    
+                    # --- 3. SINGLE API CALL PER STUDENT (Scores + Feedback) ---
+                    if master_batch:
+                        logger.info(f"[EVALUATE] 🚀 Master Call for {roll_no}: Grading {len(master_batch)} questions")
                         
-                        final_val = float(result_data.get("score", 0.0))
-                        marks[f"Q{qid}"] = final_val
-                        feedback[f"Q{qid}"] = result_data.get("feedback", "")
-                        total_score += final_val
+                        # Call Gemini ONCE - returns {"qid": {"score": X, "feedback": "..."}}
+                        ai_results = await grade_batch_with_gemini(master_batch)
+                        
+                        # Distribute scores and feedback
+                        for item in master_batch:
+                            qid = item['id']
+                            result_data = ai_results.get(qid, {"score": 0.0, "feedback": ""})
+                            
+                            final_val = float(result_data.get("score", 0.0))
+                            marks[f"Q{qid}"] = final_val
+                            feedback[f"Q{qid}"] = result_data.get("feedback", "")
+                            total_score += final_val
                 
                 # --- Finish Student (Include Feedback & Metadata) ---
                 res = {

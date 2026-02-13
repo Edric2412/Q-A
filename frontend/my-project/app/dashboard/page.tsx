@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RibbonBackground } from "@/components/RibbonBackground";
+
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getSavedPapers, getEvaluationHistory } from "@/lib/api";
 import type { SavedPaper, EvaluationHistoryItem } from "@/lib/api";
@@ -43,7 +43,6 @@ export default function DashboardPage() {
 
     return (
         <div className="dashboard-container">
-            <RibbonBackground variant="combined" />
 
             <header className="dashboard-header">
                 <div className="header-content">
@@ -68,13 +67,26 @@ export default function DashboardPage() {
                 {/* Action Cards */}
                 <div className="action-cards">
                     <a href="/generator" className="module-card">
-                        <div className="module-icon">📝</div>
+                        <div className="module-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-primary)', opacity: 0.85 }}>
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                                <polyline points="10 9 9 9 8 9" />
+                            </svg>
+                        </div>
                         <h3>Generate New Paper</h3>
                         <p>Create custom papers with AI</p>
                     </a>
 
                     <a href="/evaluate" className="module-card">
-                        <div className="module-icon">✅</div>
+                        <div className="module-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-primary)', opacity: 0.85 }}>
+                                <path d="M9 11l3 3L22 4" />
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                            </svg>
+                        </div>
                         <h3>Evaluate Answers</h3>
                         <p>Auto-grade student submissions</p>
                     </a>
@@ -90,7 +102,12 @@ export default function DashboardPage() {
                         <div className="table-container">
                             {isLoading ? (
                                 <div className="empty-state">
-                                    <div className="empty-state-icon">⏳</div>
+                                    <div className="empty-state-icon">
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <polyline points="12 6 12 12 16 14" />
+                                        </svg>
+                                    </div>
                                     <p>Loading...</p>
                                 </div>
                             ) : recentPapers.length > 0 ? (
@@ -121,7 +138,12 @@ export default function DashboardPage() {
                                 </table>
                             ) : (
                                 <div className="empty-state">
-                                    <div className="empty-state-icon">📄</div>
+                                    <div className="empty-state-icon">
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                            <polyline points="14 2 14 8 20 8" />
+                                        </svg>
+                                    </div>
                                     <p>No question papers yet</p>
                                 </div>
                             )}
@@ -136,7 +158,12 @@ export default function DashboardPage() {
                         <div className="table-container">
                             {isLoading ? (
                                 <div className="empty-state">
-                                    <div className="empty-state-icon">⏳</div>
+                                    <div className="empty-state-icon">
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <polyline points="12 6 12 12 16 14" />
+                                        </svg>
+                                    </div>
                                     <p>Loading...</p>
                                 </div>
                             ) : recentEvaluations.length > 0 ? (
@@ -157,18 +184,18 @@ export default function DashboardPage() {
                                                 onClick={() => handleEvaluationClick(evaluation._id)}
                                             >
                                                 <td>
-                                                    <div className="font-medium text-white">
+                                                    <div className="cell-primary">
                                                         {evaluation.subject || "Unknown Subject"}
                                                     </div>
-                                                    <div className="text-xs text-white/50">
+                                                    <div className="cell-secondary">
                                                         ID: {evaluation._id.substring(0, 8)}
                                                     </div>
                                                 </td>
                                                 <td>
                                                     {evaluation.batch ? (
-                                                        <span className="text-sm text-white/80">{evaluation.batch}</span>
+                                                        <span className="cell-batch">{evaluation.batch}</span>
                                                     ) : (
-                                                        <span className="text-sm text-white/40 italic">N/A</span>
+                                                        <span className="cell-na">N/A</span>
                                                     )}
                                                 </td>
                                                 <td>{evaluation.student_count}</td>
@@ -186,7 +213,12 @@ export default function DashboardPage() {
                                 </table>
                             ) : (
                                 <div className="empty-state">
-                                    <div className="empty-state-icon">✅</div>
+                                    <div className="empty-state-icon">
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M9 11l3 3L22 4" />
+                                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                                        </svg>
+                                    </div>
                                     <p>No evaluations yet</p>
                                 </div>
                             )}
