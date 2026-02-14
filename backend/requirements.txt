@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-pymongo
 pydantic
 bcrypt
 python-multipart
@@ -18,15 +17,12 @@ torch
 sentence-transformers
 SentencePiece
 accelerate
-llama-cpp-python
 python-docx
-motor
 openpyxl
 pandas
 tenacity
-pymongo
 pytesseract
 asyncpg
 psycopg2-binary
 latex2mathml
-
+lxml

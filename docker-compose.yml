@@ -1,0 +1,50 @@
+services:
+  # ─── PostgreSQL Database ───
+  db:
+    image: postgres:16
+    container_name: qp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: edric
+      POSTGRES_PASSWORD: edric123
+      POSTGRES_DB: qp
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U edric -d qp" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── FastAPI Backend ───
+  backend:
+    build: ./backend
+    container_name: qp-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://edric:edric123@db:5432/qp
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/app:/app # Hot reload in dev
+
+  # ─── Next.js Frontend ───
+  frontend:
+    build: ./frontend
+    container_name: qp-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

@@ -1,9 +1,29 @@
-qp/
+# Dependencies
+node_modules/
+venv*/
 __pycache__/
 *.pyc
+
+# Build output
+.next/
+out/
+
+# Environment
 .env
-uploads/
-temp/
+.env.local
+.env*.local
+
+# IDE
 .vscode/
 .idea/
+
+# Temp / uploads
+backend/app/temp/
+backend/app/uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
 *.log

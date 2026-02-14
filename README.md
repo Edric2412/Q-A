@@ -4,7 +4,8 @@
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![Google AI](https://img.shields.io/badge/Google_Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -41,28 +42,51 @@ This project provides a **dual-pipeline architecture** for modern educational as
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (Next.js)                       │
-│  Dashboard • Generator • Evaluator • Results • Analytics         │
-└────────────────┬────────────────────────────────┬───────────────┘
-                 │                                │
-    ┌────────────▼───────────┐      ┌────────────▼──────────────┐
-    │  Generator API (8000)  │      │  Evaluator API (/eval)    │
-    │  • Syllabus Upload     │      │  • Vision PDF Grading     │
-    │  • RAG Generation      │      │  • AI Grading             │
-    │  • DOCX Export         │      │  • Performance Analytics  │
-    └────────────┬───────────┘      └────────────┬──────────────┘
-                 │                                │
-                 └────────────┬───────────────────┘
-                              │
-                 ┌────────────▼──────────────┐
-                 │  PostgreSQL (QP Database) │
-                 │  • Users                  │
-                 │  • Question Papers        │
-                 │  • Exam Results           │
-                 │  • Concept Analytics      │
-                 └───────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Docker["🐳 Docker Compose"]
+        subgraph Frontend["🌐 Frontend — Next.js :3000"]
+            direction LR
+            D["Dashboard"]
+            G["Generator"]
+            E["Evaluator"]
+            R["Results"]
+            A["Analytics"]
+        end
+
+        subgraph Backend["⚡ Backend — FastAPI :8000"]
+            direction LR
+            subgraph GenAPI["Generator API"]
+                G1["Syllabus Upload"]
+                G2["RAG Generation"]
+                G3["DOCX Export"]
+            end
+            subgraph EvalAPI["Evaluator API /evaluator"]
+                E1["Vision PDF Grading"]
+                E2["AI Grading"]
+                E3["Performance Analytics"]
+            end
+        end
+
+        subgraph DB["🐘 PostgreSQL :5432"]
+            direction LR
+            T1["Users"]
+            T2["Question Papers"]
+            T3["Evaluations"]
+            T4["Students"]
+        end
+    end
+
+    subgraph AI["🤖 External APIs"]
+        direction LR
+        Gemini["Google Gemini 2.5 Flash"]
+        Vision["Gemini Vision"]
+        MiniLM["MiniLM-L6-v2"]
+    end
+
+    Frontend -->|REST API| Backend
+    Backend -->|asyncpg| DB
+    Backend -->|LangChain| AI
 ```
 
 **Tech Stack:**
@@ -110,81 +134,80 @@ This project provides a **dual-pipeline architecture** for modern educational as
 ## 📦 Installation
 
 ### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- Docker (for PostgreSQL)
-- Google Cloud API Key (Gemini)
+- [Docker](https://docs.docker.com/get-docker/) & Docker Compose
+- Google Cloud API Key ([Gemini](https://ai.google.dev/))
 
-### Backend Setup
+### Quick Start (Docker — Recommended)
 
 ```bash
-# Clone repository
+# 1. Clone the repository
 git clone <repository-url>
 cd QP
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or venv\Scripts\activate  # Windows
+# 2. Add your Google API key
+echo 'GOOGLE_API_KEY=your_key_here' > .env
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Add your GOOGLE_API_KEY and DATABASE_URL
+# 3. Start everything (PostgreSQL + Backend + Frontend)
+docker compose up --build
 ```
 
-### Frontend Setup
+That's it! Open `http://localhost:3000` in your browser.
 
+| Service | URL | Container |
+|---------|-----|-----------|
+| Frontend | `http://localhost:3000` | qp-frontend |
+| Backend API | `http://localhost:8000` | qp-backend |
+| PostgreSQL | `localhost:5433` | qp-postgres |
+
+### Local Development (without Docker)
+
+<details>
+<summary>Click to expand</summary>
+
+**Backend:**
 ```bash
-cd frontend/my-project
+cd backend
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env  # Add GOOGLE_API_KEY and DATABASE_URL
+cd app && uvicorn main:app --reload --port 8000
+```
 
-# Install dependencies
+**Frontend:**
+```bash
+cd frontend
 npm install
-
-# Configure environment
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
-
-# Run development server
+echo 'NEXT_PUBLIC_API_URL=http://localhost:8000' > .env.local
 npm run dev
 ```
 
-### Database Setup
-
+**Database:**
 ```bash
-# Start PostgreSQL container
-sudo docker start qp-postgres
-
-# Or run a new one:
-# sudo docker run -d --name qp-postgres \
-#   -e POSTGRES_USER=edric -e POSTGRES_PASSWORD=edric123 \
-#   -e POSTGRES_DB=qp -p 5433:5432 postgres:16
+sudo docker run -d --name qp-postgres \
+  -e POSTGRES_USER=your_username -e POSTGRES_PASSWORD=your_password \
+  -e POSTGRES_DB=qp -p 5433:5432 postgres:16
 ```
+
+</details>
 
 ---
 
 ## 🎮 Usage
 
-### Start the Backend
+### Docker (Single Command)
 
 ```bash
-# Terminal 1: Main API (Generator + Evaluator)
-# Ensure Docker is running first: sudo docker start qp-postgres
-uvicorn main:app --reload --port 8000
+# Start all services
+docker compose up
+
+# Stop all services
+docker compose down
+
+# Rebuild after code changes
+docker compose up --build
 ```
 
-The evaluator is automatically mounted at `/evaluator` on the same port.
-
-### Start the Frontend
-
-```bash
-# Terminal 2: Next.js Dev Server
-cd frontend/my-project
-npm run dev
-```
-
-Access the application at `http://localhost:3000`
+The backend API is available at `http://localhost:8000`, with the evaluator mounted at `/evaluator`.
 
 ### 🔑 API Endpoints
 
@@ -237,29 +260,35 @@ Access the application at `http://localhost:3000`
 
 ```
 QP/
-├── main.py                  # Generator API
-├── main2.py                 # Evaluator API
-├── vision_utils.py          # Gemini Vision grading utilities
-├── database.py              # PostgreSQL async connection pool
-├── schema.sql               # Database schema
-├── migrate_data.py          # Migration script
-├── requirements.txt         # Python dependencies
-├── templates/               # DOCX templates
-│   ├── CIA_QP_template.docx
-│   └── Models_QP_template.docx
-├── MML2OMML.xsl            # Math transformation stylesheet
-├── frontend/
-│   └── my-project/
-│       ├── app/            # Next.js pages
-│       │   ├── dashboard/       # Main dashboard
-│       │   ├── generator/       # Question paper generator
-│       │   ├── evaluate/        # Answer evaluator
-│       │   ├── results/         # Evaluation results table
-│       │   ├── visualizations/  # Performance analytics charts
-│       │   └── paper/           # Question paper viewer
-│       ├── components/     # React components
-│       └── lib/            # API client & utilities
-└── uploads/                # Temporary file storage
+├── backend/                 # 🐍 Python API
+│   ├── .env                 # Environment variables
+│   ├── requirements.txt     # Python dependencies
+│   ├── app/
+│   │   ├── main.py          # Generator API
+│   │   ├── main2.py         # Evaluator API  
+│   │   ├── database.py      # PostgreSQL async pool
+│   │   ├── vision_utils.py  # Gemini Vision grading
+│   │   ├── schema.sql       # Database schema
+│   │   ├── MML2OMML.xsl     # Math transformation
+│   │   └── templates/       # DOCX templates
+│   └── scripts/
+│       ├── migrate_data.py  # Migration script
+│       └── fix_details.py   # Data fix utilities
+│
+├── frontend/                # ⚛️ Next.js App
+│   ├── app/                 # Pages
+│   │   ├── dashboard/       # Main dashboard
+│   │   ├── generator/       # Question generator
+│   │   ├── evaluate/        # Answer evaluator
+│   │   ├── results/         # Evaluation results
+│   │   ├── visualizations/  # Analytics charts
+│   │   └── paper/           # Paper viewer
+│   ├── components/          # React components
+│   ├── lib/                 # API client & utilities
+│   └── package.json
+│
+├── docker-compose.yml       # 🐳 Stack orchestration
+└── README.md
 ```
 
 ---
@@ -268,24 +297,99 @@ QP/
 
 ### Environment Variables
 
-**Backend (`.env`)**
+**Root (`.env`)** — used by Docker Compose
+```env
+GOOGLE_API_KEY=your_gemini_api_key
+```
+
+**Backend (`backend/.env`)** — used for local development
 ```env
 GOOGLE_API_KEY=your_gemini_api_key
 DATABASE_URL=postgresql://user:pass@localhost:5433/qp
 ```
 
-**Frontend (`.env.local`)**
+**Frontend (`frontend/.env.local`)** — only for local development
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
+> In Docker, `DATABASE_URL` and `NEXT_PUBLIC_API_URL` are set automatically via `docker-compose.yml`.
+
 ### Templates
 
-Custom DOCX templates can be added to `/templates/` directory:
+Custom DOCX templates can be added to `backend/app/templates/` directory:
 - `{ExamType}_QP_template.docx` - Question paper format
 - `{ExamType}_Answerkey_template.docx` - Answer key format
 
 Use placeholders like `{{subject}}`, `{{Q1}}`, `{{A1}}` for dynamic content.
+
+---
+
+## 🗃️ Database Schema
+
+PostgreSQL 16 with 6 tables. Schema is auto-initialized on startup via `schema.sql`.
+
+```mermaid
+erDiagram
+    users {
+        SERIAL id PK
+        VARCHAR email UK
+        VARCHAR password
+    }
+    departments {
+        SERIAL id PK
+        VARCHAR value UK
+        VARCHAR label
+    }
+    details {
+        SERIAL id PK
+        VARCHAR department
+        JSONB batches
+        JSONB semesters
+        JSONB exams
+        JSONB subjects
+    }
+    students {
+        SERIAL id PK
+        VARCHAR department
+        VARCHAR batch
+        VARCHAR roll_no
+        VARCHAR name
+    }
+    question_papers {
+        SERIAL id PK
+        VARCHAR subject
+        VARCHAR exam_type
+        VARCHAR difficulty
+        TIMESTAMP created_at
+        JSONB paper
+    }
+    evaluations {
+        SERIAL id PK
+        VARCHAR roll_no
+        VARCHAR exam_id
+        JSONB marks
+        JSONB feedback
+        DECIMAL total
+        TIMESTAMP timestamp
+        VARCHAR subject
+        VARCHAR batch
+        VARCHAR department
+        VARCHAR semester
+    }
+    departments ||--o{ details : "has"
+    details ||--o{ students : "contains"
+    question_papers ||--o{ evaluations : "graded_by"
+```
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `users` | Authentication | `email`, `password` (bcrypt) |
+| `departments` | Dropdown values | `value`, `label` |
+| `details` | Batch/semester/subject config per department | JSONB arrays for `batches`, `semesters`, `subjects` |
+| `students` | Student roster per dept+batch | `roll_no`, `name`, unique on `(department, batch, roll_no)` |
+| `question_papers` | Generated question papers | Full paper stored as `JSONB` |
+| `evaluations` | Grading results per student | `marks` and `feedback` as JSONB maps, `total` score |
 
 ---
 

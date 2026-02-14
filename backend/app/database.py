@@ -113,12 +113,12 @@ async def get_metadata() -> dict:
     }
 
 
-async def get_students(department: str, batch: str) -> list[str]:
+async def get_students(department: str, batch: str) -> list[dict]:
     pool = await get_pool()
     
     # 1. Exact match
     rows = await pool.fetch(
-        "SELECT roll_no FROM students WHERE department = $1 AND batch = $2 ORDER BY roll_no",
+        "SELECT roll_no, name FROM students WHERE department = $1 AND batch = $2 ORDER BY roll_no",
         department, batch
     )
     
@@ -126,7 +126,7 @@ async def get_students(department: str, batch: str) -> list[str]:
     if not rows:
         tight_batch = batch.replace(" ", "")
         rows = await pool.fetch(
-            "SELECT roll_no FROM students WHERE department = $1 AND batch = $2 ORDER BY roll_no",
+            "SELECT roll_no, name FROM students WHERE department = $1 AND batch = $2 ORDER BY roll_no",
             department, tight_batch
         )
     
@@ -134,18 +134,18 @@ async def get_students(department: str, batch: str) -> list[str]:
     if not rows and "-" in batch and " - " not in batch:
         spaced_batch = batch.replace("-", " - ")
         rows = await pool.fetch(
-            "SELECT roll_no FROM students WHERE department = $1 AND batch = $2 ORDER BY roll_no",
+            "SELECT roll_no, name FROM students WHERE department = $1 AND batch = $2 ORDER BY roll_no",
             department, spaced_batch
         )
     
     # 4. Fallback: case-insensitive department
     if not rows:
         rows = await pool.fetch(
-            "SELECT roll_no FROM students WHERE LOWER(department) = LOWER($1) AND batch = $2 ORDER BY roll_no",
+            "SELECT roll_no, name FROM students WHERE LOWER(department) = LOWER($1) AND batch = $2 ORDER BY roll_no",
             department, batch
         )
     
-    return [r["roll_no"] for r in rows]
+    return [{"roll_no": r["roll_no"], "name": r["name"] or r["roll_no"]} for r in rows]
 
 
 async def get_saved_papers(limit: int = 50) -> list[dict]:

@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS students (
     department  VARCHAR(255) NOT NULL,
     batch       VARCHAR(50) NOT NULL,
     roll_no     VARCHAR(50) NOT NULL,
+    name        VARCHAR(255) DEFAULT '',
     UNIQUE(department, batch, roll_no)
 );
 

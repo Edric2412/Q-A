@@ -10,8 +10,8 @@ import io
 import logging
 import time
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from backend/.env
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
 from fastapi.responses import RedirectResponse, FileResponse

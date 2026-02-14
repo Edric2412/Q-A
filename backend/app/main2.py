@@ -27,7 +27,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 
 # --- Setup & Configuration ---
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent / ".env")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -428,7 +428,7 @@ async def upload_files(
     answer_key: UploadFile = File(...),
     student_papers: List[UploadFile] = File(...)
 ):
-    upload_dir = Path(f"./uploads/{exam_id}")
+    upload_dir = Path(__file__).parent / "uploads" / exam_id
     upload_dir.mkdir(parents=True, exist_ok=True)
     files = {}
     
