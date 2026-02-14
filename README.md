@@ -335,6 +335,7 @@ erDiagram
         SERIAL id PK
         VARCHAR email UK
         VARCHAR password
+        TIMESTAMP created_at
     }
     departments {
         SERIAL id PK
@@ -343,7 +344,7 @@ erDiagram
     }
     details {
         SERIAL id PK
-        VARCHAR department
+        VARCHAR department FK
         JSONB batches
         JSONB semesters
         JSONB exams
@@ -351,10 +352,11 @@ erDiagram
     }
     students {
         SERIAL id PK
-        VARCHAR department
+        VARCHAR department FK
         VARCHAR batch
         VARCHAR roll_no
         VARCHAR name
+        TIMESTAMP created_at
     }
     question_papers {
         SERIAL id PK
@@ -374,11 +376,12 @@ erDiagram
         TIMESTAMP timestamp
         VARCHAR subject
         VARCHAR batch
-        VARCHAR department
+        VARCHAR department FK
         VARCHAR semester
     }
-    departments ||--o{ details : "has"
-    details ||--o{ students : "contains"
+    departments ||--o{ details : "FK: department"
+    departments ||--o{ students : "FK: department"
+    departments ||--o{ evaluations : "FK: department"
     question_papers ||--o{ evaluations : "graded_by"
 ```
 

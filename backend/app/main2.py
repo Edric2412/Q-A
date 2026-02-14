@@ -5,6 +5,7 @@ import datetime
 import re
 import logging
 import time
+import asyncio
 import random
 from typing import List, Dict, Any, Optional
 from pathlib import Path
@@ -189,7 +190,7 @@ def extract_text(file_path: str) -> str:
     return "\n".join(text_content)
 
 def extract_student_identity(text: str) -> str:
-    match = re.search(r"(?i)Roll\s*(?:No|Number|\.)?\s*[:\-\.]?\s*([A-Z0-9]+)", text)
+    match = re.search(r"(?i)Roll[-\s\.]*(?:No\.?|Number|Num)?\s*[:\-\.]*\s*([A-Z0-9]+)", text)
     return match.group(1).upper().strip() if match else None
 
 def parse_student_text(text: str) -> Dict[str, str]:
@@ -226,7 +227,7 @@ def parse_student_text(text: str) -> Dict[str, str]:
             
     return parsed_answers
     
-def call_gemini_api_safe(prompt: str, retries=3):
+async def call_gemini_api_safe(prompt: str, retries=3):
     """
     Calls Gemini with strict rate limiting and backoff to handle 429 errors.
     """
@@ -235,9 +236,10 @@ def call_gemini_api_safe(prompt: str, retries=3):
     for attempt in range(retries):
         try:
             # 1. Force a wait BEFORE every call to respect Rate Limits
-            time.sleep(base_delay) 
+            await asyncio.sleep(base_delay) 
             
-            response = gemini_model.generate_content(prompt)
+            # Async generation
+            response = await gemini_model.generate_content_async(prompt)
             return response
             
         except Exception as e:
@@ -245,7 +247,7 @@ def call_gemini_api_safe(prompt: str, retries=3):
             if "429" in error_str or "quota" in error_str:
                 wait_time = (attempt + 1) * 20  # Wait 20s, then 40s, then 60s
                 logger.warning(f"Quota Hit! Sleeping for {wait_time}s before retry {attempt+1}/{retries}...")
-                time.sleep(wait_time)
+                await asyncio.sleep(wait_time)
             else:
                 logger.error(f"Gemini API Error: {e}")
                 return None
@@ -339,7 +341,7 @@ async def grade_batch_with_gemini(batch_data: List[Dict]) -> Dict[str, Dict[str,
     """
 
     # Use the safe call logic
-    response = call_gemini_api_safe(prompt)
+    response = await call_gemini_api_safe(prompt)
     
     if response:
         try:
@@ -515,7 +517,7 @@ async def evaluate(
                     # Use Gemini 2.0 Flash or 1.5 Flash (User asked for 3, but let's stick to stable/available)
                     # We can try to respect user wish: 'gemini-2.0-flash-exp' or 'gemini-1.5-flash'
                     # The library usually handles model aliases.
-                    vision_results = grade_pdf_with_vision(s_path, full_rubric_str, model_name="gemini-3-flash-preview")
+                    vision_results = await grade_pdf_with_vision(s_path, full_rubric_str, model_name="gemini-3-flash-preview")
                     
                     # 3. Process Results
                     marks = {}

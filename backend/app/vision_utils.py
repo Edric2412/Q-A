@@ -1,6 +1,6 @@
 
 import logging
-import time
+import asyncio
 import json
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -17,11 +17,11 @@ def upload_to_gemini(path: str, mime_type: str = "application/pdf"):
         logger.error(f"Failed to upload file {path}: {e}")
         raise
 
-def wait_for_file_active(file):
+async def wait_for_file_active(file):
     """Waits for the file to be processed and active."""
     logger.info(f"Waiting for file {file.name} to process...")
     while file.state.name == "PROCESSING":
-        time.sleep(2)
+        await asyncio.sleep(2)
         file = genai.get_file(file.name)
     
     if file.state.name != "ACTIVE":
@@ -30,18 +30,18 @@ def wait_for_file_active(file):
     logger.info(f"File {file.name} is ACTIVE.")
     return file
 
-def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str = "gemini-3-flash-preview") -> dict:
+async def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str = "gemini-3-flash-preview") -> dict:
     """
     Uploads PDF, waits for processing, and grades it using Gemini Vision in one go.
     Returns a dictionary of results { "1": {"score": X, "feedback": Y}, ... }
     """
     gemini_file = None
     try:
-        # 1. Upload
+        # 1. Upload (Upload is sync, but fast)
         gemini_file = upload_to_gemini(pdf_path)
         
         # 2. Wait
-        gemini_file = wait_for_file_active(gemini_file)
+        gemini_file = await wait_for_file_active(gemini_file)
         
         # 3. Construct Prompt
         # We prompt the model to look at the PDF and the Rubric string.
@@ -87,7 +87,8 @@ def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str = "ge
             HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
         }
 
-        response = model.generate_content(
+        # Async generation
+        response = await model.generate_content_async(
             [prompt, gemini_file],
             safety_settings=safety_settings
         )

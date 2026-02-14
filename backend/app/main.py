@@ -175,7 +175,7 @@ import google.generativeai as genai
 if os.getenv("GOOGLE_API_KEY"):
     genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, str]]:
+async def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, str]]:
     try:
         full_text = ""
         # 1. Try Standard Text Extraction first
@@ -195,7 +195,7 @@ def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, str]]:
                 
                 # Wait for processing
                 while sample_file.state.name == "PROCESSING":
-                    time.sleep(2)
+                    await asyncio.sleep(2)
                     sample_file = genai.get_file(sample_file.name)
                 
                 if sample_file.state.name == "FAILED":
@@ -203,12 +203,12 @@ def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, str]]:
 
                 # Prompt Gemini to extract text
                 model = genai.GenerativeModel('gemini-2.5-flash')
-                response = model.generate_content([
+                response = await model.generate_content_async([
                     "Extract the full text from this syllabus PDF. Preserve structure like 'Unit 1', 'Module 1'.", 
                     sample_file
                 ])
                 full_text = response.text
-                logger.info("Gemini OCR successful")
+                logger.info("Async Gemini OCR successful")
                 
                 # Cleanup
                 genai.delete_file(sample_file.name)
@@ -620,7 +620,7 @@ async def upload_syllabus(file: UploadFile = File(...)):
     temp_file_path = TEMP_DIR / f"temp_{random.randint(1000, 9999)}_{file.filename}"
     try:
         with open(temp_file_path, "wb") as f: f.write(await file.read())
-        units = extract_units_from_pdf(str(temp_file_path))
+        units = await extract_units_from_pdf(str(temp_file_path))
         return {"units": units}
     finally:
         if temp_file_path.exists(): temp_file_path.unlink()
