@@ -90,7 +90,7 @@ flowchart TB
 ```
 
 **Tech Stack:**
-- **Backend:** FastAPI (Python 3.10+), Google Gemini 2.5 Flash / Gemini Vision
+- **Backend:** FastAPI (Python 3.10+), Google Gemini 2.5 Flash / 3.0 Flash Preview
 - **Frontend:** Next.js 16, React 19, TypeScript, Recharts
 - **Database:** PostgreSQL 16 (on Docker) with asyncpg driver
 - **AI/ML:** LangChain, Google Generative AI Embeddings
@@ -109,25 +109,29 @@ flowchart TB
 - **Rubric Generation**: Automated marking schemes with keyword extraction
 
 ### 🔍 Answer Evaluation
-- **Vision PDF Grading**: Direct handwritten PDF evaluation via Gemini Vision
-- **AI Grading**: Context-aware evaluation against model answers
-- **Concept Extraction**: Identifies knowledge gaps per student
-- **Bulk Processing**: Grade entire classes in minutes
-- **Excel Reports**: Downloadable results with per-question feedback
+- **Robust Identity Extraction**: Prioritizes Filename > OCR (Tesseract) > Content to identify students.
+- **Vision PDF Grading**: Direct handwritten PDF evaluation via Gemini Vision.
+- **AI Grading**: Context-aware evaluation against model answers.
+- **Concept Extraction**: Identifies knowledge gaps per student.
+- **Bulk Processing**: Grade entire classes in minutes.
+- **Excel Reports**: Downloadable results with per-question feedback.
+- **Record Management**: Delete specific evaluation records directly from UI.
 
 ### 📊 Performance Analytics
-- **Summary Stats**: Class average, highest/lowest score, pass rate
-- **Score Distribution**: Histogram showing mark ranges
-- **Per-Question Analysis**: Bar chart comparing avg vs max per question
-- **Student Rankings**: Leaderboard with gradient performance bars
-- **Score Heatmap**: Color-coded student × question grid
-- **Pass/Fail Donut**: Visual breakdown of pass rates
+- **Print-Ready Reports**: Optimised layout for printing charts and insights.
+- **Summary Stats**: Class average, highest/lowest score, pass rate.
+- **Score Distribution**: Histogram showing mark ranges.
+- **Per-Question Analysis**: Bar chart comparing avg vs max per question.
+- **Student Rankings**: Leaderboard with gradient performance bars.
+- **Score Heatmap**: Color-coded student × question grid.
+- **Pass/Fail Donut**: Visual breakdown of pass rates.
 
 ### 🎨 Modern UI/UX
-- **macOS Liquid Glass**: Premium translucent design with backdrop blur, specular highlights, and glass refraction borders
-- **Dark/Light Mode**: Full theme support across all pages
-- **SVG Icon System**: Professional inline SVG icons (no emoji)
-- **Responsive Layout**: Mobile-first design with breakpoints
+- **macOS Liquid Glass**: Premium translucent design with backdrop blur, specular highlights, and glass refraction borders.
+- **Dark/Light Mode**: Full theme support across all pages.
+- **SVG Icon System**: Professional inline SVG icons (no emoji).
+- **Responsive Layout**: Mobile-first design with breakpoints.
+- **Print Optimization**: Dedicated CSS for clean, ink-saving analytics prints.
 
 ---
 
@@ -247,12 +251,13 @@ The backend API is available at `http://localhost:8000`, with the evaluator moun
 ### Evaluation Flow
 
 1. **Answer Upload** → PDF/DOCX student papers
-2. **Vision Grading (PDF)** → Gemini Vision reads handwritten answers directly
-3. **Text Grading (DOCX)** → Traditional OCR + text extraction fallback
-4. **Rubric Matching** → AI compares answers against marking schemes
-5. **Mark Allocation** → Per-question scoring with feedback
-6. **Analytics** → Score distributions, heatmaps, rankings
-7. **Export Generation** → Excel with per-question feedback columns
+2. **Identity Extraction** → Filename Check → OCR Fallback → Content Analysis
+3. **Vision Grading (PDF)** → Gemini Vision reads handwritten answers directly
+4. **Text Grading (DOCX)** → Text extraction with Regex parsing
+5. **Rubric Matching** → AI compares answers against marking schemes
+6. **Mark Allocation** → Per-question scoring with feedback
+7. **Analytics** → Score distributions, heatmaps, rankings
+8. **Export Generation** → Excel with per-question feedback columns
 
 ---
 

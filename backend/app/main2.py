@@ -555,7 +555,17 @@ async def evaluate(
                 # --- OLD: TEXT GRADING FOR DOCX ---
                 else: 
                     s_text = extract_text(s_path)
-                    roll_no = extract_student_identity(s_text) or f"UNKNOWN_{idx}"
+                    
+                    # 1. Try Filename First
+                    fname = os.path.basename(s_path)
+                    rn_match = re.search(r"(\d{5,})", fname)
+                    
+                    if rn_match:
+                        roll_no = rn_match.group(1)
+                    else:
+                        # 2. Fallback to Content
+                        roll_no = extract_student_identity(s_text) or f"UNKNOWN_{idx}"
+                        
                     s_answers = parse_student_text(s_text)
                     
                     marks = {}
