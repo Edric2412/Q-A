@@ -3,8 +3,13 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install dependencies
+# Robust npm install
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-factor 10 && \
+    npm config set fetch-retry-mintimeout 60000 && \
+    npm config set fetch-retry-maxtimeout 600000 && \
+    npm ci
 
 # Copy source code
 COPY . .

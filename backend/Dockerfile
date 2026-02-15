@@ -7,12 +7,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     libxml2-dev \
     libxslt1-dev \
+    poppler-utils \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
+# Pre-install CPU-only torch to save space/time
+RUN pip install --default-timeout=1000 torch --index-url https://download.pytorch.org/whl/cpu
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --default-timeout=1000 --no-cache-dir -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Copy application code
 COPY app/ .

@@ -986,3 +986,34 @@ td {
         min-height: 280px;
     }
 }
+
+/* --- Delete Button Styles --- */
+.delete-btn {
+    background: none;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.5;
+    margin-left: 8px;
+    z-index: 10;
+    position: relative;
+}
+
+.delete-btn:hover {
+    background-color: rgba(239, 68, 68, 0.15);
+    /* Red tint */
+    color: #ef4444;
+    /* Red color */
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+tr:hover .delete-btn {
+    opacity: 0.8;
+}

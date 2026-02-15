@@ -4,8 +4,23 @@ import asyncio
 import json
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
+import pytesseract
+from pdf2image import convert_from_path
 
 logger = logging.getLogger(__name__)
+
+def extract_first_page_text_ocr(pdf_path: str) -> str:
+    """
+    Extracts text from the first page of a PDF using Tesseract OCR.
+    Used for identifying students in scanned handwritten scripts.
+    """
+    try:
+        images = convert_from_path(pdf_path, first_page=1, last_page=1)
+        if images:
+            return pytesseract.image_to_string(images[0])
+    except Exception as e:
+        logger.error(f"OCR Identity Extraction Failed for {pdf_path}: {e}")
+    return ""
 
 def upload_to_gemini(path: str, mime_type: str = "application/pdf"):
     """Uploads a file to Gemini File API."""

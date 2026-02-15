@@ -103,7 +103,7 @@ class MarkUpdateRequest(BaseModel):
 # --- Helper Functions ---
 
 
-from vision_utils import grade_pdf_with_vision
+from vision_utils import grade_pdf_with_vision, extract_first_page_text_ocr
 
 def parse_docx_table_data(file_path: str, is_question_paper: bool = False) -> Dict[str, Dict]:
     doc = docx.Document(file_path)
@@ -485,14 +485,27 @@ async def evaluate(
             for idx, s_path in enumerate(student_paths):
                 # --- NEW: VISION GRADING FOR PDF ---
                 if s_path.lower().endswith(".pdf"):
-                    roll_no = f"Student_{idx+1}" # Fallback as we can't easily regex filename/text yet
+                    roll_no = f"Student_{idx+1}" # Fallback
+                    ocr_text = ""
+                    
                     try:
-                        # Attempt to extract roll no from filename first
-                        # e.g. "2211046_Maths.pdf" -> "2211046"
+                        # 1. Attempt extracting from filename
                         fname = os.path.basename(s_path)
                         rn_match = re.search(r"(\d{5,})", fname)
-                        if rn_match: roll_no = rn_match.group(1)
-                    except: pass
+                        if rn_match: 
+                            roll_no = rn_match.group(1)
+                        else:
+                            # 2. Fallback: OCR First Page for Handwritten Identity
+                            logger.info(f"Filename extraction failed. Running OCR on first page of {fname}...")
+                            ocr_text = extract_first_page_text_ocr(s_path)
+                            extracted_id = extract_student_identity(ocr_text)
+                            if extracted_id:
+                                roll_no = extracted_id
+                                logger.info(f"✅ Extracted Roll No via OCR: {roll_no}")
+                            else:
+                                logger.warning(f"❌ Could not identify student in {fname}")
+                    except Exception as e:
+                        logger.error(f"Identity Extraction Error: {e}")
 
                     logger.info(f"[EVALUATE] ⚡ Vision Grading for {roll_no} (PDF)...")
                     
@@ -641,6 +654,16 @@ async def update_marks(request: MarkUpdateRequest):
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(500, detail=str(e))
+
+@evaluator_app.delete("/delete-evaluation/{exam_id}")
+async def delete_evaluation_endpoint(exam_id: str):
+    try:
+        await db_module.delete_evaluation(exam_id)
+        return {"status": "success", "message": "Evaluation deleted"}
+    except Exception as e:
+        logger.error(f"Error deleting evaluation {exam_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @evaluator_app.get("/history")
 async def get_evaluation_history():

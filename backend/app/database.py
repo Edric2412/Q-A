@@ -265,6 +265,16 @@ async def get_evaluation_results(exam_id: str) -> list[dict]:
     return results
 
 
+async def delete_paper(paper_id: int):
+    pool = await get_pool()
+    await pool.execute("DELETE FROM question_papers WHERE id = $1", paper_id)
+
+
+async def delete_evaluation(exam_id: str):
+    pool = await get_pool()
+    await pool.execute("DELETE FROM evaluations WHERE exam_id = $1", exam_id)
+
+
 async def get_evaluation_history(limit: int = 50) -> list[dict]:
     """Replaces the MongoDB aggregation pipeline for history."""
     pool = await get_pool()

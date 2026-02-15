@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import "./visualizations.css";
 
-const PASS_THRESHOLD = 0.4; // 40% of max possible marks
+const PASS_THRESHOLD = 20; // Pass mark is 20
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -23,7 +23,7 @@ function computeStats(results: EvaluationResult[]) {
 
     // Compute max possible marks from the first student's marks keys
     const maxPossible = high > 0 ? high : 100; // fallback
-    const passCount = totals.filter(t => t >= maxPossible * PASS_THRESHOLD).length;
+    const passCount = totals.filter(t => t >= PASS_THRESHOLD).length;
     const passRate = (passCount / totals.length) * 100;
 
     return { avg, high, low, passRate, studentCount: results.length, maxPossible };
@@ -135,7 +135,7 @@ export default function VisualizationsPage() {
 
     const donutData = useMemo(() => {
         if (!stats) return [];
-        const passCount = results.filter(r => r.total >= stats.maxPossible * PASS_THRESHOLD).length;
+        const passCount = results.filter(r => r.total >= PASS_THRESHOLD).length;
         return [
             { name: "Pass", value: passCount },
             { name: "Fail", value: results.length - passCount },
@@ -186,20 +186,32 @@ export default function VisualizationsPage() {
         maxPerQ[qk] = Math.max(...results.map(r => r.marks[qk] || 0));
     });
 
+    const handlePrint = () => {
+        window.print();
+    };
+
     return (
         <div className="viz-page">
             {/* Header */}
             <header className="viz-header">
                 <div className="viz-header-left">
-                    <Link href={`/results/${exam_id}`} className="viz-back-link">
+                    <Link href={`/dashboard`} className="viz-back-link">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="19" y1="12" x2="5" y2="12" />
                             <polyline points="12 19 5 12 12 5" />
                         </svg>
-                        Back to Results
+                        Back to Dashboard
                     </Link>
                 </div>
                 <div className="viz-header-right">
+                    <button className="viz-print-btn" onClick={handlePrint}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9" />
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                            <rect x="6" y="14" width="12" height="8" />
+                        </svg>
+                        Print Report
+                    </button>
                     <ThemeToggle />
                 </div>
             </header>
@@ -291,12 +303,12 @@ export default function VisualizationsPage() {
                         <h3 className="viz-panel-title">Score Distribution</h3>
                         <div className="chart-container">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={histogram} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                                <BarChart data={histogram} margin={{ top: 5, right: 30, left: 0, bottom: 30 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="range" tick={{ fontSize: 11 }} />
-                                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                                    <XAxis dataKey="range" tick={{ fill: 'black', fontSize: 11 }} />
+                                    <YAxis allowDecimals={false} tick={{ fill: 'black', fontSize: 11 }} />
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Bar dataKey="count" name="Students" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                                    <Bar dataKey="count" name="Students" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={50} isAnimationActive={false} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -305,7 +317,7 @@ export default function VisualizationsPage() {
                     {/* 6. PASS/FAIL DONUT */}
                     <div className="viz-panel">
                         <h3 className="viz-panel-title">Pass / Fail Breakdown</h3>
-                        <div className="chart-container" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div className="chart-container donut-container" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
@@ -317,6 +329,7 @@ export default function VisualizationsPage() {
                                         paddingAngle={4}
                                         dataKey="value"
                                         stroke="none"
+                                        isAnimationActive={false}
                                     >
                                         {donutData.map((_entry, index) => (
                                             <Cell key={`cell-${index}`} fill={DONUT_COLORS[index]} />
@@ -341,13 +354,13 @@ export default function VisualizationsPage() {
                         <h3 className="viz-panel-title">Per-Question Performance</h3>
                         <div className="chart-container" style={{ height: 350 }}>
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={perQuestion} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                                <BarChart data={perQuestion} margin={{ top: 5, right: 20, left: 0, bottom: 30 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="question" tick={{ fontSize: 11 }} />
-                                    <YAxis tick={{ fontSize: 11 }} />
+                                    <XAxis dataKey="question" tick={{ fill: 'black', fontSize: 11 }} />
+                                    <YAxis tick={{ fill: 'black', fontSize: 11 }} />
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Bar dataKey="avgScore" name="Avg Score" fill="#8b5cf6" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                                    <Bar dataKey="maxScore" name="Max Scored" fill="rgba(99, 102, 241, 0.2)" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                                    <Bar dataKey="avgScore" name="Avg Score" fill="#8b5cf6" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                                    <Bar dataKey="maxScore" name="Max Scored" fill="rgba(99, 102, 241, 0.2)" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>

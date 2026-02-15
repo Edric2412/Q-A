@@ -7,6 +7,7 @@ import {
     getDetails,
     uploadSyllabus,
     generateQuestions,
+    regenerateQuestion,
     downloadPaper,
     downloadKey,
     Department,
@@ -20,6 +21,7 @@ import "./generator.css";
 interface SyllabusUnit {
     unit: string;
     text: string;
+    topics?: string[];
 }
 
 interface GeneratedQuestion extends Question {
@@ -42,10 +44,11 @@ export default function GeneratorPage() {
     const [paperSetter, setPaperSetter] = useState("");
     const [hod, setHod] = useState("");
 
-    // File & Units
+    // File & Units & Topics
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
     const [syllabusUnits, setSyllabusUnits] = useState<SyllabusUnit[]>([]);
     const [selectedUnits, setSelectedUnits] = useState<number[]>([]);
+    const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
     // Questions
     const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
@@ -144,6 +147,11 @@ export default function GeneratorPage() {
         try {
             const result = await uploadSyllabus(file);
             setSyllabusUnits(result.units);
+
+            // Auto-select all topics initially
+            const allTopics = result.units.flatMap(u => u.topics || []);
+            setSelectedTopics(allTopics);
+
             showToast("Syllabus processed successfully!", "success");
         } catch (error) {
             showToast("Failed to process syllabus", "error");
@@ -157,6 +165,7 @@ export default function GeneratorPage() {
         setUploadedFile(null);
         setSyllabusUnits([]);
         setSelectedUnits([]);
+        setSelectedTopics([]);
     };
 
     const toggleUnit = (index: number) => {
@@ -171,6 +180,12 @@ export default function GeneratorPage() {
         } else {
             setSelectedUnits(syllabusUnits.map((_, i) => i));
         }
+    };
+
+    const toggleTopic = (topic: string) => {
+        setSelectedTopics(prev =>
+            prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic]
+        );
     };
 
     // Check if form is valid
@@ -198,6 +213,7 @@ export default function GeneratorPage() {
                 subject,
                 exam_type: examType,
                 difficulty,
+                selected_topics: selectedTopics.length > 0 ? selectedTopics : undefined
             });
 
             // Process and assign IDs to questions
@@ -228,6 +244,31 @@ export default function GeneratorPage() {
             showToast("Questions generated successfully!", "success");
         } catch (error) {
             showToast("Failed to generate questions", "error");
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // Regenerate a single question
+    const handleRegenerate = async (question: GeneratedQuestion) => {
+        showLoading("Regenerating question...");
+        try {
+            const newQuestion = await regenerateQuestion({
+                current_question: question,
+                subject,
+                difficulty,
+                topics: selectedTopics.length > 0 ? selectedTopics : undefined
+            });
+
+            setQuestions(prev => prev.map(q =>
+                q.id === question.id
+                    ? { ...newQuestion, id: question.id, type: question.type } // Keep ID and Type
+                    : q
+            ));
+
+            showToast("Question regenerated!", "success");
+        } catch (error) {
+            showToast("Failed to regenerate question", "error");
         } finally {
             hideLoading();
         }
@@ -580,6 +621,73 @@ export default function GeneratorPage() {
                                     </label>
                                 ))}
                             </div>
+
+                            {/* Topics Selection */}
+                            <div className="topics-container" style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                <h3 style={{ marginBottom: '16px' }}>Select Topics by Unit</h3>
+
+                                <div className="units-topics-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    {selectedUnits.map((unitIndex) => {
+                                        const unit = syllabusUnits[unitIndex];
+                                        const unitTopics = unit.topics || [];
+
+                                        // Check if all topics in this unit are selected
+                                        const isAllSelected = unitTopics.every(t => selectedTopics.includes(t));
+                                        const isIndeterminate = unitTopics.some(t => selectedTopics.includes(t)) && !isAllSelected;
+
+                                        const handleUnitSelectAll = () => {
+                                            if (isAllSelected) {
+                                                // Deselect all
+                                                setSelectedTopics(prev => prev.filter(t => !unitTopics.includes(t)));
+                                            } else {
+                                                // Select all (merge unique)
+                                                setSelectedTopics(prev => [...new Set([...prev, ...unitTopics])]);
+                                            }
+                                        };
+
+                                        return (
+                                            <div key={unitIndex} className="unit-topic-group" style={{
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '5px',
+                                                padding: '20px',
+                                                background: 'rgba(255,255,255,0.02)'
+                                            }}>
+                                                <div className="unit-topic-header" style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <h4 style={{ margin: 0, fontSize: '1rem', color: '#e2e8f0' }}>{unit.unit}</h4>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: '#94a3b8' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isAllSelected}
+                                                            ref={el => { if (el) el.indeterminate = isIndeterminate; }}
+                                                            onChange={handleUnitSelectAll}
+                                                        />
+                                                        Select All Topics
+                                                    </label>
+                                                </div>
+
+                                                <div className="topics-grid" style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                                    gap: '10px'
+                                                }}>
+                                                    {unitTopics.map((topic, tIdx) => (
+                                                        <label key={tIdx} className="unit-item" style={{ fontSize: '0.9em' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedTopics.includes(topic)}
+                                                                onChange={() => toggleTopic(topic)}
+                                                            />
+                                                            <span title={topic}>{topic}</span>
+                                                        </label>
+                                                    ))}
+                                                    {unitTopics.length === 0 && <span style={{ opacity: 0.5, fontStyle: 'italic' }}>No topics found for this unit.</span>}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {selectedUnits.length === 0 && <p style={{ opacity: 0.5 }}>Select units above to configure topics.</p>}
+                            </div>
                         </div>
                     )}
                 </section>
@@ -597,287 +705,316 @@ export default function GeneratorPage() {
                 </div>
 
                 {/* Questions Builder */}
-                {questions.length > 0 && (
-                    <section className="section questions-section">
-                        <h2 className="section-title">
-                            <i className="ri-draft-line"></i>
-                            Generated Questions
-                        </h2>
+                {
+                    questions.length > 0 && (
+                        <section className="section questions-section">
+                            <h2 className="section-title">
+                                <i className="ri-draft-line"></i>
+                                Generated Questions
+                            </h2>
 
-                        {/* Section A - MCQ */}
-                        {mcqQuestions.length > 0 && (
-                            <div className="question-section">
-                                <h3 className="section-header">Section A - MCQ</h3>
-                                {mcqQuestions.map((q, idx) => (
-                                    <div key={q.id} className="question-card">
-                                        <div className="question-header">
-                                            <span className="question-number">{idx + 1}</span>
-                                            <span className="question-badge mcq">{q.type}</span>
-                                            <span className="question-marks">{q.marks} mark</span>
-                                            <button
-                                                className="edit-btn"
-                                                onClick={() => openEditModal(q)}
-                                            >
-                                                <i className="ri-edit-line"></i>
-                                            </button>
-                                            <button
-                                                className="delete-btn"
-                                                onClick={() => deleteQuestion(q.id)}
-                                            >
-                                                <i className="ri-delete-bin-line"></i>
-                                            </button>
-                                        </div>
-                                        <div className="question-text">
-                                            <MathRenderer content={q.text} />
-                                        </div>
-                                        {q.answer && (
-                                            <div className="question-answer">
-                                                <strong>Answer:</strong>
-                                                <MathRenderer content={q.answer} />
+                            {/* Section A - MCQ */}
+                            {mcqQuestions.length > 0 && (
+                                <div className="question-section">
+                                    <h3 className="section-header">Section A - MCQ</h3>
+                                    {mcqQuestions.map((q, idx) => (
+                                        <div key={q.id} className="question-card">
+                                            <div className="question-header">
+                                                <span className="question-number">{idx + 1}</span>
+                                                <span className="question-badge mcq">{q.type}</span>
+                                                <span className="question-marks">{q.marks} mark</span>
+                                                <button
+                                                    className="edit-btn"
+                                                    onClick={() => handleRegenerate(q)}
+                                                    title="Regenerate Question"
+                                                >
+                                                    <i className="ri-refresh-line"></i>
+                                                </button>
+                                                <button
+                                                    className="edit-btn"
+                                                    onClick={() => openEditModal(q)}
+                                                >
+                                                    <i className="ri-edit-line"></i>
+                                                </button>
+                                                <button
+                                                    className="delete-btn"
+                                                    onClick={() => deleteQuestion(q.id)}
+                                                >
+                                                    <i className="ri-delete-bin-line"></i>
+                                                </button>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                            <div className="question-text">
+                                                <MathRenderer content={q.text} />
+                                            </div>
+                                            {q.answer && (
+                                                <div className="question-answer">
+                                                    <strong>Answer:</strong>
+                                                    <MathRenderer content={q.answer} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
-                        {/* Section B - Short Answer */}
-                        {shortQuestions.length > 0 && (
-                            <div className="question-section">
-                                <h3 className="section-header">Section B - Short Answer</h3>
-                                {shortQuestions.map((q, idx) => (
-                                    <div key={q.id} className="question-card">
-                                        <div className="question-header">
-                                            <span className="question-number">
-                                                {Math.floor(idx / 2) + 11}
-                                                {idx % 2 === 0 ? ".a" : ".b"}
-                                            </span>
-                                            <span className="question-badge short">{q.type}</span>
-                                            <span className="question-marks">{q.marks} marks</span>
-                                            <button
-                                                className="edit-btn"
-                                                onClick={() => openEditModal(q)}
-                                            >
-                                                <i className="ri-edit-line"></i>
-                                            </button>
-                                            <button
-                                                className="delete-btn"
-                                                onClick={() => deleteQuestion(q.id)}
-                                            >
-                                                <i className="ri-delete-bin-line"></i>
-                                            </button>
-                                        </div>
-                                        <div className="question-text">
-                                            <MathRenderer content={q.text} />
-                                        </div>
-                                        {q.answer && (
-                                            <div className="question-answer">
-                                                <strong>Answer:</strong>
-                                                <MathRenderer content={q.answer} />
+                            {/* Section B - Short Answer */}
+                            {shortQuestions.length > 0 && (
+                                <div className="question-section">
+                                    <h3 className="section-header">Section B - Short Answer</h3>
+                                    {shortQuestions.map((q, idx) => (
+                                        <div key={q.id} className="question-card">
+                                            <div className="question-header">
+                                                <span className="question-number">
+                                                    {Math.floor(idx / 2) + 11}
+                                                    {idx % 2 === 0 ? ".a" : ".b"}
+                                                </span>
+                                                <span className="question-badge short">{q.type}</span>
+                                                <span className="question-marks">{q.marks} marks</span>
+                                                <button
+                                                    className="edit-btn"
+                                                    onClick={() => handleRegenerate(q)}
+                                                    title="Regenerate Question"
+                                                >
+                                                    <i className="ri-refresh-line"></i>
+                                                </button>
+                                                <button
+                                                    className="edit-btn"
+                                                    onClick={() => openEditModal(q)}
+                                                >
+                                                    <i className="ri-edit-line"></i>
+                                                </button>
+                                                <button
+                                                    className="delete-btn"
+                                                    onClick={() => deleteQuestion(q.id)}
+                                                >
+                                                    <i className="ri-delete-bin-line"></i>
+                                                </button>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                            <div className="question-text">
+                                                <MathRenderer content={q.text} />
+                                            </div>
+                                            {q.answer && (
+                                                <div className="question-answer">
+                                                    <strong>Answer:</strong>
+                                                    <MathRenderer content={q.answer} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
-                        {/* Section C - Long Essay */}
-                        {longQuestions.length > 0 && (
-                            <div className="question-section">
-                                <h3 className="section-header">Section C - Long Essay</h3>
-                                {longQuestions.map((q, idx) => (
-                                    <div key={q.id} className="question-card">
-                                        <div className="question-header">
-                                            <span className="question-number">
-                                                {Math.floor(idx / 2) + 16}
-                                                {idx % 2 === 0 ? ".a" : ".b"}
-                                            </span>
-                                            <span className="question-badge long">{q.type}</span>
-                                            <span className="question-marks">{q.marks} marks</span>
-                                            <button
-                                                className="edit-btn"
-                                                onClick={() => openEditModal(q)}
-                                            >
-                                                <i className="ri-edit-line"></i>
-                                            </button>
-                                            <button
-                                                className="delete-btn"
-                                                onClick={() => deleteQuestion(q.id)}
-                                            >
-                                                <i className="ri-delete-bin-line"></i>
-                                            </button>
-                                        </div>
-                                        <div className="question-text">
-                                            <MathRenderer content={q.text} />
-                                        </div>
-                                        {q.answer && (
-                                            <div className="question-answer">
-                                                <strong>Answer:</strong>
-                                                <MathRenderer content={q.answer} />
+                            {/* Section C - Long Essay */}
+                            {longQuestions.length > 0 && (
+                                <div className="question-section">
+                                    <h3 className="section-header">Section C - Long Essay</h3>
+                                    {longQuestions.map((q, idx) => (
+                                        <div key={q.id} className="question-card">
+                                            <div className="question-header">
+                                                <span className="question-number">
+                                                    {Math.floor(idx / 2) + 16}
+                                                    {idx % 2 === 0 ? ".a" : ".b"}
+                                                </span>
+                                                <span className="question-badge long">{q.type}</span>
+                                                <span className="question-marks">{q.marks} marks</span>
+                                                <button
+                                                    className="edit-btn"
+                                                    onClick={() => handleRegenerate(q)}
+                                                    title="Regenerate Question"
+                                                >
+                                                    <i className="ri-refresh-line"></i>
+                                                </button>
+                                                <button
+                                                    className="edit-btn"
+                                                    onClick={() => openEditModal(q)}
+                                                >
+                                                    <i className="ri-edit-line"></i>
+                                                </button>
+                                                <button
+                                                    className="delete-btn"
+                                                    onClick={() => deleteQuestion(q.id)}
+                                                >
+                                                    <i className="ri-delete-bin-line"></i>
+                                                </button>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-                )}
+                                            <div className="question-text">
+                                                <MathRenderer content={q.text} />
+                                            </div>
+                                            {q.answer && (
+                                                <div className="question-answer">
+                                                    <strong>Answer:</strong>
+                                                    <MathRenderer content={q.answer} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )
+                }
 
                 {/* Export Section */}
-                {questions.length > 0 && (
-                    <section className="section export-section">
-                        <h2 className="section-title">
-                            <i className="ri-download-2-line"></i>
-                            Preview & Export
-                        </h2>
-                        <div className="export-buttons">
-                            <button className="export-btn preview" onClick={() => setPreviewType("paper")}>
-                                <i className="ri-eye-line"></i>
-                                Preview Question Paper
-                            </button>
-                            <button className="export-btn paper" onClick={handleDownloadPaper}>
-                                <i className="ri-file-word-line"></i>
-                                Download Question Paper
-                            </button>
-                        </div>
-                        <div className="export-buttons" style={{ marginTop: "12px" }}>
-                            <button className="export-btn preview" onClick={() => setPreviewType("key")}>
-                                <i className="ri-eye-line"></i>
-                                Preview Answer Key
-                            </button>
-                            <button className="export-btn key" onClick={handleDownloadKey}>
-                                <i className="ri-file-text-line"></i>
-                                Download Answer Key
-                            </button>
-                        </div>
-                    </section>
-                )}
-            </div>
+                {
+                    questions.length > 0 && (
+                        <section className="section export-section">
+                            <h2 className="section-title">
+                                <i className="ri-download-2-line"></i>
+                                Preview & Export
+                            </h2>
+                            <div className="export-buttons">
+                                <button className="export-btn preview" onClick={() => setPreviewType("paper")}>
+                                    <i className="ri-eye-line"></i>
+                                    Preview Question Paper
+                                </button>
+                                <button className="export-btn paper" onClick={handleDownloadPaper}>
+                                    <i className="ri-file-word-line"></i>
+                                    Download Question Paper
+                                </button>
+                            </div>
+                            <div className="export-buttons" style={{ marginTop: "12px" }}>
+                                <button className="export-btn preview" onClick={() => setPreviewType("key")}>
+                                    <i className="ri-eye-line"></i>
+                                    Preview Answer Key
+                                </button>
+                                <button className="export-btn key" onClick={handleDownloadKey}>
+                                    <i className="ri-file-text-line"></i>
+                                    Download Answer Key
+                                </button>
+                            </div>
+                        </section>
+                    )
+                }
+            </div >
 
             {/* Edit Modal */}
-            {editingQuestion && (
-                <div className="modal-overlay" onClick={closeEditModal}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>Edit Question</h3>
-                            <button className="modal-close" onClick={closeEditModal}>
-                                <i className="ri-close-line"></i>
-                            </button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="form-group">
-                                <label>Question Text</label>
-                                <textarea
-                                    value={editText}
-                                    onChange={(e) => setEditText(e.target.value)}
-                                    rows={6}
-                                    placeholder="Enter question text..."
-                                />
+            {
+                editingQuestion && (
+                    <div className="modal-overlay" onClick={closeEditModal}>
+                        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h3>Edit Question</h3>
+                                <button className="modal-close" onClick={closeEditModal}>
+                                    <i className="ri-close-line"></i>
+                                </button>
                             </div>
-                            <div className="form-group">
-                                <label>Answer</label>
-                                <textarea
-                                    value={editAnswer}
-                                    onChange={(e) => setEditAnswer(e.target.value)}
-                                    rows={4}
-                                    placeholder="Enter answer..."
-                                />
+                            <div className="modal-body">
+                                <div className="form-group">
+                                    <label>Question Text</label>
+                                    <textarea
+                                        value={editText}
+                                        onChange={(e) => setEditText(e.target.value)}
+                                        rows={6}
+                                        placeholder="Enter question text..."
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Answer</label>
+                                    <textarea
+                                        value={editAnswer}
+                                        onChange={(e) => setEditAnswer(e.target.value)}
+                                        rows={4}
+                                        placeholder="Enter answer..."
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn-secondary" onClick={closeEditModal}>
-                                Cancel
-                            </button>
-                            <button className="btn-primary" onClick={saveEdit}>
-                                Save Changes
-                            </button>
+                            <div className="modal-footer">
+                                <button className="btn-secondary" onClick={closeEditModal}>
+                                    Cancel
+                                </button>
+                                <button className="btn-primary" onClick={saveEdit}>
+                                    Save Changes
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Preview Modal */}
-            {previewType && (
-                <div className="modal-overlay" onClick={() => setPreviewType(null)}>
-                    <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>{previewType === "paper" ? "Question Paper Preview" : "Answer Key Preview"}</h3>
-                            <button className="modal-close" onClick={() => setPreviewType(null)}>
-                                <i className="ri-close-line"></i>
-                            </button>
-                        </div>
-                        <div className="preview-body">
-                            {/* Header */}
-                            <div className="preview-header">
-                                <h2>{department}</h2>
-                                <p><strong>Batch:</strong> {batch} | <strong>Semester:</strong> {semester}</p>
-                                <p><strong>Subject:</strong> {subject} | <strong>Exam:</strong> {examType}</p>
-                                <p><strong>Duration:</strong> {duration}</p>
+            {
+                previewType && (
+                    <div className="modal-overlay" onClick={() => setPreviewType(null)}>
+                        <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h3>{previewType === "paper" ? "Question Paper Preview" : "Answer Key Preview"}</h3>
+                                <button className="modal-close" onClick={() => setPreviewType(null)}>
+                                    <i className="ri-close-line"></i>
+                                </button>
                             </div>
-
-                            {/* MCQ Section */}
-                            {mcqQuestions.length > 0 && (
-                                <div className="preview-section">
-                                    <h4>Section A - Multiple Choice Questions (1 mark each)</h4>
-                                    {mcqQuestions.map((q, idx) => (
-                                        <div key={q.id} className="preview-question">
-                                            <p><strong>{idx + 1}.</strong> {q.text}</p>
-                                            {previewType === "key" && q.answer && (
-                                                <p className="preview-answer"><strong>Answer:</strong> {q.answer}</p>
-                                            )}
-                                        </div>
-                                    ))}
+                            <div className="preview-body">
+                                {/* Header */}
+                                <div className="preview-header">
+                                    <h2>{department}</h2>
+                                    <p><strong>Batch:</strong> {batch} | <strong>Semester:</strong> {semester}</p>
+                                    <p><strong>Subject:</strong> {subject} | <strong>Exam:</strong> {examType}</p>
+                                    <p><strong>Duration:</strong> {duration}</p>
                                 </div>
-                            )}
 
-                            {/* Short Answer Section */}
-                            {shortQuestions.length > 0 && (
-                                <div className="preview-section">
-                                    <h4>Section B - Short Answer Questions ({shortQuestions[0]?.marks || 4} marks each)</h4>
-                                    {shortQuestions.map((q, idx) => (
-                                        <div key={q.id} className="preview-question">
-                                            <p><strong>{Math.floor(idx / 2) + 11}{idx % 2 === 0 ? "a" : "b"}.</strong> {q.text}</p>
-                                            {previewType === "key" && q.answer && (
-                                                <p className="preview-answer"><strong>Answer:</strong> {q.answer}</p>
-                                            )}
-                                        </div>
-                                    ))}
+                                {/* MCQ Section */}
+                                {mcqQuestions.length > 0 && (
+                                    <div className="preview-section">
+                                        <h4>Section A - Multiple Choice Questions (1 mark each)</h4>
+                                        {mcqQuestions.map((q, idx) => (
+                                            <div key={q.id} className="preview-question">
+                                                <p><strong>{idx + 1}.</strong> {q.text}</p>
+                                                {previewType === "key" && q.answer && (
+                                                    <p className="preview-answer"><strong>Answer:</strong> {q.answer}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Short Answer Section */}
+                                {shortQuestions.length > 0 && (
+                                    <div className="preview-section">
+                                        <h4>Section B - Short Answer Questions ({shortQuestions[0]?.marks || 4} marks each)</h4>
+                                        {shortQuestions.map((q, idx) => (
+                                            <div key={q.id} className="preview-question">
+                                                <p><strong>{Math.floor(idx / 2) + 11}{idx % 2 === 0 ? "a" : "b"}.</strong> {q.text}</p>
+                                                {previewType === "key" && q.answer && (
+                                                    <p className="preview-answer"><strong>Answer:</strong> {q.answer}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Long Answer Section */}
+                                {longQuestions.length > 0 && (
+                                    <div className="preview-section">
+                                        <h4>Section C - Long Answer Questions ({longQuestions[0]?.marks || 10} marks each)</h4>
+                                        {longQuestions.map((q, idx) => (
+                                            <div key={q.id} className="preview-question">
+                                                <p><strong>{Math.floor(idx / 2) + 16}{idx % 2 === 0 ? "a" : "b"}.</strong> {q.text}</p>
+                                                {previewType === "key" && q.answer && (
+                                                    <p className="preview-answer"><strong>Answer:</strong> {q.answer}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Footer */}
+                                <div className="preview-footer">
+                                    <p><strong>Paper Setter:</strong> {paperSetter || "N/A"}</p>
+                                    <p><strong>HOD:</strong> {hod || "N/A"}</p>
                                 </div>
-                            )}
-
-                            {/* Long Answer Section */}
-                            {longQuestions.length > 0 && (
-                                <div className="preview-section">
-                                    <h4>Section C - Long Answer Questions ({longQuestions[0]?.marks || 10} marks each)</h4>
-                                    {longQuestions.map((q, idx) => (
-                                        <div key={q.id} className="preview-question">
-                                            <p><strong>{Math.floor(idx / 2) + 16}{idx % 2 === 0 ? "a" : "b"}.</strong> {q.text}</p>
-                                            {previewType === "key" && q.answer && (
-                                                <p className="preview-answer"><strong>Answer:</strong> {q.answer}</p>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Footer */}
-                            <div className="preview-footer">
-                                <p><strong>Paper Setter:</strong> {paperSetter || "N/A"}</p>
-                                <p><strong>HOD:</strong> {hod || "N/A"}</p>
                             </div>
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn-secondary" onClick={() => setPreviewType(null)}>
-                                Close
-                            </button>
-                            <button className="btn-primary" onClick={previewType === "paper" ? handleDownloadPaper : handleDownloadKey}>
-                                <i className="ri-download-line"></i>
-                                Download DOCX
-                            </button>
+                            <div className="modal-footer">
+                                <button className="btn-secondary" onClick={() => setPreviewType(null)}>
+                                    Close
+                                </button>
+                                <button className="btn-primary" onClick={previewType === "paper" ? handleDownloadPaper : handleDownloadKey}>
+                                    <i className="ri-download-line"></i>
+                                    Download DOCX
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </>
     );
 }

@@ -26,6 +26,9 @@ from pydantic import BaseModel
 from docx import Document
 from docx.text.paragraph import Paragraph
 
+import pytesseract
+from pdf2image import convert_from_path
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -45,17 +48,24 @@ try:
     if not GOOGLE_API_KEY:
         raise ValueError("GOOGLE_API_KEY environment variable not set")
     os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.6)
+    
+    # Model Strategy: Gemini 3 Flash Preview (simulated by 2.0 Flash Exp) -> Fallback to 2.5 Flash
+    llm_primary = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.6)
+    llm_fallback = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.6)
+    
+    llm = llm_primary # Default model
+    
     embedding = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
     logger.info("Google AI Models initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize Google AI Models. Error: {e}")
     raise
 
-
 # --- PROMPT ENGINEERING ---
 MCQ_BATCH_PROMPT = PromptTemplate.from_template("""
 You are an expert question paper setter for {subject}. 
+{topics_instruction}
+
 Generate **{num_questions}** distinct Multiple Choice Questions of {difficulty} difficulty, each worth {marks} mark.
 
 For each MCQ, provide:
@@ -79,6 +89,8 @@ Return a single, valid JSON object:
 
 RUBRIC_BATCH_PROMPT = PromptTemplate.from_template("""
 You are an expert question paper setter for **{subject}**.
+{topics_instruction}
+
 Generate **{num_questions}** distinct {question_type} questions of {difficulty} difficulty, each worth {marks} marks.
 
 For each question, provide:
@@ -105,6 +117,103 @@ Return a single, valid JSON object:
 
 **Context:** {context}
 """)
+
+# ... (FASTAPI SETUP and other code remains same, skipping to parse_json_output) ...
+
+def parse_json_output(response_text: str) -> List[Dict[str, str]]:
+    try:
+        data = None
+        # 1. Try to find a JSON object representing the whole response
+        # Regex for object
+        json_obj_match = re.search(r'(\{[\s\S]*\})', response_text)
+        if json_obj_match:
+            try:
+                data = json.loads(json_obj_match.group(1))
+            except:
+                pass
+
+        # 2. If no object or failed, try to find a JSON list
+        if data is None:
+            json_list_match = re.search(r'(\[[\s\S]*\])', response_text)
+            if json_list_match:
+                try:
+                    data = json.loads(json_list_match.group(1))
+                except:
+                    pass
+
+        # 3. Fallback: Code block cleaning
+        if data is None:
+             match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_text)
+             if match:
+                 try:
+                     data = json.loads(match.group(1))
+                 except:
+                     pass
+
+        if data is None:
+            logger.error(f"JSON Parse Failed. Raw: {response_text[:200]}...")
+            return []
+
+        questions = []
+        if isinstance(data, dict):
+             questions = data.get("questions", [])
+        elif isinstance(data, list):
+             questions = data
+        
+        normalized = []
+        for q in questions:
+            if isinstance(q, dict):
+                if "question" in q and "text" not in q: q["text"] = q.pop("question")
+                if "answer" not in q: q["answer"] = q.get("correct_answer", "")
+                if "options" in q and isinstance(q["options"], dict):
+                    opt_text = "\n".join([f"{k}) {v}" for k, v in q["options"].items()])
+                    q["text"] = q.get("text", "") + "\n" + opt_text
+                normalized.append(q)
+        return normalized
+    except Exception as e:
+        logger.error(f"Parse error: {e}")
+        return []
+
+async def run_batch_query(prompt: PromptTemplate, q_type: str, num: int, marks: int, context: str, subject: str, difficulty: str, topics: List[str] = None) -> List[Dict[str, str]]:
+    if num <= 0: return []
+    try:
+        logger.info(f"Generating {num} {q_type} questions...")
+        
+        # Proper topic instruction injection
+        topics_instruction = ""
+        if topics:
+            topics_list = ", ".join(topics)
+            topics_instruction = f"**STRICT CONSTRAINT**: You must ONLY generate questions related to the following topics: {topics_list}. Do NOT generate questions from any other topics found in the context."
+        
+        # Input variables
+        input_vars = {
+            "subject": subject, 
+            "num_questions": num, 
+            "question_type": q_type,
+            "difficulty": difficulty, 
+            "marks": marks, 
+            "context": context,
+            "topics_instruction": topics_instruction
+        }
+
+        # Strategy: Use Primary Model first
+        try:
+            chain_primary = prompt | llm_primary | StrOutputParser()
+            response = await chain_primary.ainvoke(input_vars)
+            return parse_json_output(response)
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                logger.warning(f"Primary model exhausted ({err_str[:50]}...). Switching to FALLBACK model...")
+                chain_fallback = prompt | llm_fallback | StrOutputParser()
+                response = await chain_fallback.ainvoke(input_vars)
+                return parse_json_output(response)
+            else:
+                raise e # Re-raise if it's not a quota error
+
+    except Exception as e:
+        logger.error(f"Error in batch query: {e}")
+        return []
 
 # --- FASTAPI APP SETUP ---
 app = FastAPI(title="Question Paper Generator", version="2.0")
@@ -145,6 +254,14 @@ TEMPLATE_PATHS = {
     }
 }
 
+@app.delete("/delete-paper/{paper_id}")
+async def delete_paper(paper_id: int):
+    try:
+        await db_module.delete_paper(paper_id)
+        return {"status": "success", "message": "Paper deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Mount Evaluator (main2.py) at /evaluator
 # This allows it to run on the SAME port (8000)
 app.mount("/evaluator", evaluator_app)
@@ -156,6 +273,12 @@ class Question(BaseModel):
     text: str
     answer: str
     marks: int
+
+class RegenerateRequest(BaseModel):
+    current_question: Question
+    subject: str
+    difficulty: str
+    topics: List[str] = []
 
 class DownloadRequest(BaseModel):
     department: str
@@ -175,7 +298,49 @@ import google.generativeai as genai
 if os.getenv("GOOGLE_API_KEY"):
     genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-async def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, str]]:
+async def extract_topics_from_text(text: str) -> List[str]:
+    try:
+        if not text or len(text) < 50: return []
+        prompt = f"""
+        Identify the key topics/concepts in the following syllabus unit text.
+        Return strictly a JSON list of strings, e.g. ["Topic 1", "Topic 2"].
+        Text: {text[:2000]}...
+        """
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = await model.generate_content_async(prompt)
+        cleaned = clean_json_string(response.text) # We need to move/import clean_json_string or duplicates it
+        return json.loads(cleaned)
+    except Exception as e:
+        logger.error(f"Topic extraction failed: {e}")
+        return []
+
+# Duplicate clean_json_string here for safety (it was in main2.py)
+def clean_json_string(text: str) -> str:
+    try:
+        start = text.find('[')
+        end = text.rfind(']')
+        if start != -1 and end != -1:
+            return text[start:end+1]
+        return "[]"
+    except:
+        return "[]"
+
+def ocr_pdf_with_tesseract(pdf_path: str) -> str:
+    """Fallback OCR using Tesseract for scanned PDFs."""
+    try:
+        logger.info(f"Starting Tesseract OCR for {pdf_path}")
+        images = convert_from_path(pdf_path)
+        full_text = ""
+        for i, image in enumerate(images):
+            # Tesseract OCR
+            text = pytesseract.image_to_string(image)
+            full_text += f"\n--- Page {i+1} ---\n{text}"
+        return full_text
+    except Exception as e:
+        logger.error(f"Tesseract OCR failed: {e}")
+        return ""
+
+async def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, Any]]:
     try:
         full_text = ""
         # 1. Try Standard Text Extraction first
@@ -186,206 +351,53 @@ async def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, str]]:
             logger.error(f"PDFPlumber failed: {e}")
 
         # 2. Check if Scanned (OCR needed)
-        if len(full_text) < 100:
-            logger.warning("PDF appears to be scanned (text < 100 chars). Attempting Gemini OCR...")
-            try:
-                # Upload to Gemini
-                sample_file = genai.upload_file(path=pdf_path, display_name="Syllabus PDF")
-                logger.info(f"Uploaded file to Gemini: {sample_file.uri}")
-                
-                # Wait for processing
-                while sample_file.state.name == "PROCESSING":
-                    await asyncio.sleep(2)
-                    sample_file = genai.get_file(sample_file.name)
-                
-                if sample_file.state.name == "FAILED":
-                    raise ValueError("Gemini file processing failed")
+        # If less than 100 chars, assumes it's scanned
+        if not full_text or len(full_text.strip()) < 100:
+            logger.warning("PDF appears to be scanned. Attempting Tesseract OCR...")
+            full_text = ocr_pdf_with_tesseract(pdf_path)
+            
+            if not full_text:
+                logger.error("OCR failed to extract significant text.")
+                # We return empty or continue to see if any text was waiting
+                if not full_text: return []
 
-                # Prompt Gemini to extract text
-                model = genai.GenerativeModel('gemini-2.5-flash')
-                response = await model.generate_content_async([
-                    "Extract the full text from this syllabus PDF. Preserve structure like 'Unit 1', 'Module 1'.", 
-                    sample_file
-                ])
-                full_text = response.text
-                logger.info("Async Gemini OCR successful")
-                
-                # Cleanup
-                genai.delete_file(sample_file.name)
-
-            except Exception as e:
-                logger.error(f"Gemini OCR Failed: {e}")
-                # Fallback to whatever we have (likely empty)
-        
-        # DEBUG: Save full extracted text to analyze
-        debug_path = BASE_DIR / "debug_last_pdf_extraction.txt"
-        with open(debug_path, "w", encoding="utf-8") as f:
-            f.write(full_text)
-        logger.info(f"Saved extracted text to {debug_path}")
-
-        logger.info(f"Extracted {len(full_text)} characters from PDF")
-        # Log first 500 chars to see header structure
-        logger.info(f"PDF Header Preview: {full_text[:500]}")
-
-        # Improved regex to handle "Unit 1", "Unit I", "Module 1", "Module I"
-        # Matches Unit/Module followed by:
-        # 1. Digits (\d+)
-        # 2. Roman Numerals ([IVX]+)
+        # Regex Split
         unit_pattern = re.compile(
             r"((?:Unit|Module)[\s:-]+(?:(?:\d+)|(?:\b[IVX]+\b)).*?(?=(?:Unit|Module)[\s:-]+(?:(?:\d+)|(?:\b[IVX]+\b))|$))", 
             re.DOTALL | re.IGNORECASE
         )
-        
         matches = unit_pattern.findall(full_text)
         
         if not matches:
-            logger.info("No explicit units found. Returning full syllabus.")
-            return [{"unit": "Full Syllabus", "text": full_text}] if full_text.strip() else []
+             # Treat as one big unit
+             topics = await extract_topics_from_text(full_text)
+             return [{"unit": "Full Syllabus", "text": full_text, "topics": topics}]
+
+        # Process units and extract topics in parallel
+        results = []
+        for idx, match in enumerate(matches):
+            txt = match.strip()
+            if not txt: continue
+            # We could parallelize this, but valid loop is safer for rate limits
+            topics = await extract_topics_from_text(txt) 
+            results.append({"unit": f"Unit {idx+1}", "text": txt, "topics": topics})
             
-        logger.info(f"Found {len(matches)} units.")
-        return [{"unit": f"Unit {idx+1}", "text": match.strip()} for idx, match in enumerate(matches) if match.strip()]
+        return results
+
     except Exception as e:
         logger.error(f"Error reading PDF {pdf_path}: {e}")
         return []
 
-def create_document_chunks(units: List[Dict[str, str]]) -> List[Any]:
+def create_document_chunks(units: List[Dict[str, Any]]) -> List[Any]:
     texts = [unit["text"] for unit in units if unit.get("text")]
     if not texts: return []
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=500)
     return text_splitter.create_documents(texts, metadatas=[{"unit": unit["unit"]} for unit in units])
 
-def parse_json_output(response_text: str) -> List[Dict[str, str]]:
-    try:
-        # Try code block first
-        json_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', response_text, re.DOTALL)
-        if not json_match:
-            # Try to find JSON object - use greedy match for nested structures
-            # Find opening brace and match to the last closing brace
-            start = response_text.find('{')
-            end = response_text.rfind('}')
-            if start != -1 and end != -1 and end > start:
-                json_str = response_text[start:end+1]
-            else:
-                logger.warning(f"No JSON found in response: {response_text[:200]}")
-                return []
-        else:
-            json_str = json_match.group(1)
-        
-        try:
-            data = json.loads(json_str)
-        except json.JSONDecodeError as e:
-            logger.warning(f"Initial JSON parse failed: {e}. Attempting to fix backslashes...")
-            # Fix invalid escapes for LaTeX (e.g., \le -> \\le, \g -> \\g)
-            # Strategy: Find ANY backslash.
-            # If it's a valid JSON escape (e.g., \n, \", \u1234), keep it.
-            # If it's invalid (e.g., \alpha, \underline), escape it (\\alpha, \\underline).
-            
-            def escape_fixer(match):
-                # match.group(0) is the backslash and the following character
-                # Check if it looks like a valid escape
-                seq = match.group(0) # e.g. "\n" or "\u" or "\a"
-                
-                # Standard single-char escapes
-                if seq in [r'\"', r'\\', r'\/', r'\b', r'\f', r'\n', r'\r', r'\t']:
-                    return seq
-                    
-                # Unicode escape start (\u). We need to peek ahead 4 chars in a real parser,
-                # but here we can just regex for \uXXXX in the main pattern.
-                # If we matched just "\u", it means it wasn't followed by 4 hex digits (see pattern below).
-                return r"\\" + seq[1]
 
-            # Regex:
-            # 1. Match valid unicode escape: \\u[0-9a-fA-F]{4} -> Keep as is (Group 1)
-            # 2. Match backslash + any char: \\. -> Pass to callback to decide
-            # We use re.sub with a function.
-            
-            # Actually, simpler with re.sub using a smarter pattern:
-            # Pattern matches ANY backslash-plus-char sequence.
-            # But we prioritize valid unicode first.
-            
-            def replace_invalid_escapes(text):
-                # Pattern 1: Valid Unicode Escape (e.g., \u0020) - Capture it
-                # Pattern 2: Any other backslash sequence (e.g., \n, \", \a, \$, \u12 (incomplete)) - Capture it
-                pattern = r'(\\u[0-9a-fA-F]{4})|(\\.)'
-                
-                def sub_callback(m):
-                    if m.group(1): return m.group(1) # Valid Unicode, return as is
-                    
-                    val = m.group(2) # Backslash + char
-                    if val in [r'\"', r'\\', r'\/', r'\b', r'\f', r'\n', r'\r', r'\t']:
-                        return val # Valid standard escape, keep it
-                    
-                    # Otherwise (e.g. \$, \a, \u(without hex)), double the backslash
-                    return r'\\' + val[1]
-                
-                return re.sub(pattern, sub_callback, text)
 
-            fixed_json_str = replace_invalid_escapes(json_str)
-            try:
-                data = json.loads(fixed_json_str)
-                logger.info("JSON parse successful after fixing backslashes (Smart Fix).")
-            except json.JSONDecodeError as e2:
-                logger.error(f"Smart fix failed: {e2}")
-                logger.error(f"Snippet: {fixed_json_str[:200]}")
-                return []
-        
-        questions = data.get("questions", [])
-        if not isinstance(questions, list):
-            logger.warning(f"'questions' is not a list: {type(questions)}")
-            return []
-        
-        # Normalize fields
-        normalized = []
-        for q in questions:
-            if isinstance(q, dict):
-                # Normalize question -> text
-                if "question" in q and "text" not in q:
-                    q["text"] = q.pop("question")
-                # Ensure answer field exists
-                if "answer" not in q:
-                    q["answer"] = q.get("correct_answer", q.get("correct", q.get("model_answer", "")))
-                # For MCQs, format options into text if present
-                if "options" in q and isinstance(q["options"], (list, dict)):
-                    opts = q["options"]
-                    if isinstance(opts, dict):
-                        opt_text = "\n".join([f"{k}) {v}" for k, v in opts.items()])
-                    else:
-                        opt_text = "\n".join([f"{chr(65+i)}) {o}" for i, o in enumerate(opts)])
-                    q["text"] = q.get("text", "") + "\n" + opt_text
-                normalized.append(q)
-        
-        logger.info(f"Parsed {len(normalized)} questions successfully")
-        return normalized
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON decode error: {e}. Response: {response_text[:500]}")
-        return []
-    except Exception as e:
-        logger.error(f"Parse error: {e}")
-        return []
-
-async def run_batch_query(prompt: PromptTemplate, q_type: str, num: int, marks: int, context: str, subject: str, difficulty: str) -> List[Dict[str, str]]:
-    if num <= 0: return []
-    try:
-        logger.info(f"Generating {num} {q_type} questions...")
-        chain = prompt | llm | StrOutputParser()
-        response = await chain.ainvoke({
-            "subject": subject, "num_questions": num, "question_type": q_type,
-            "difficulty": difficulty, "marks": marks, "context": context
-        })
-        logger.info(f"Raw LLM Response for {q_type}: {response[:500]}...") # Log first 500 chars
-        
-        parsed = parse_json_output(response)
-        if not parsed:
-            logger.error(f"Failed to parse {q_type} response. Full response saved to debug log.")
-            logger.info(f"FULL FAILED RESPONSE ({q_type}): {response}")
-            
-        return parsed
-    except Exception as e:
-        logger.error(f"Error in batch query for {q_type}: {e}")
-        return []
-
-async def generate_question_paper(docs_content: tuple, subject: str, pattern: str, difficulty: str) -> Dict[str, List]:
-    # Generator Patterns (Separate from Evaluator)
+async def generate_question_paper(docs_content: tuple, subject: str, pattern: str, difficulty: str, topics: List[str] = None) -> Dict[str, List]:
+    # Generator Patterns
     patterns = {
         "CIA": {"mcq": (10, 1), "short": (5, 4), "long": (2, 10)},
         "Model": {"mcq": (10, 1), "short": (5, 5), "long": (5, 8)}
@@ -397,17 +409,17 @@ async def generate_question_paper(docs_content: tuple, subject: str, pattern: st
     num_short, marks_short = config["short"]
     num_long, marks_long = config["long"]
     
+    # Context sampling
     context_sample = "\n---\n".join(random.sample(list(docs_content), min(len(docs_content), 5)))
     paper = {"MCQ": [], "Short": [], "Long": []}
 
-    paper["MCQ"] = await run_batch_query(MCQ_BATCH_PROMPT, "MCQ", num_mcq, marks_mcq, context_sample, subject, difficulty)
-    paper["Short"] = await run_batch_query(RUBRIC_BATCH_PROMPT, "Short Answer", num_short * 2, marks_short, context_sample, subject, difficulty)
-    paper["Long"] = await run_batch_query(RUBRIC_BATCH_PROMPT, "Long Essay", num_long * 2, marks_long, context_sample, subject, difficulty)
+    paper["MCQ"] = await run_batch_query(MCQ_BATCH_PROMPT, "MCQ", num_mcq, marks_mcq, context_sample, subject, difficulty, topics)
+    paper["Short"] = await run_batch_query(RUBRIC_BATCH_PROMPT, "Short Answer", num_short * 2, marks_short, context_sample, subject, difficulty, topics)
+    paper["Long"] = await run_batch_query(RUBRIC_BATCH_PROMPT, "Long Essay", num_long * 2, marks_long, context_sample, subject, difficulty, topics)
 
-    # Filter out non-dict items and assign marks (LLM sometimes returns malformed data)
-    paper["MCQ"] = [item for item in paper["MCQ"] if isinstance(item, dict)]
-    paper["Short"] = [item for item in paper["Short"] if isinstance(item, dict)]
-    paper["Long"] = [item for item in paper["Long"] if isinstance(item, dict)]
+    # Filter and assign marks
+    for cat in ["MCQ", "Short", "Long"]:
+        paper[cat] = [item for item in paper[cat] if isinstance(item, dict)]
     
     for item in paper["MCQ"]: item["marks"] = marks_mcq
     for item in paper["Short"]: item["marks"] = marks_short
@@ -415,7 +427,114 @@ async def generate_question_paper(docs_content: tuple, subject: str, pattern: st
         
     return paper
 
-# --- DOCX UTILS ---
+# ... (Previous DOCX UTILS code kept as is mostly, just ensuring imports aligned) ...
+
+# --- ROUTES ---
+@app.get("/")
+async def read_root(): return {"message": "KCLAS Question Paper Generator API", "version": "2.1"}
+
+# ... (Login, Departments, Details, Saved Papers routes unchanged) ...
+@app.post("/login")
+async def login(request: Request, email: str = Form(...), password: str = Form(...)): # Re-insert existing logic
+    try:
+        user = await db_module.find_user_by_email(email)
+        if user and bcrypt.checkpw(password.encode('utf-8'), user["password"].encode('utf-8')):
+            return RedirectResponse(url="/dashboard", status_code=303)
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    except HTTPException: raise
+    except Exception: raise HTTPException(status_code=500, detail="Login failed")
+
+@app.get("/departments")
+async def get_departments(): return await db_module.get_departments()
+
+@app.get("/details/{department}")
+async def get_details_by_department(department: str): return await db_module.get_details_by_department(department.strip())
+
+@app.get("/saved-papers")
+async def get_saved_papers(): return await db_module.get_saved_papers()
+
+@app.get("/saved-paper/{paper_id}")
+async def get_saved_paper(paper_id: str):
+    paper = await db_module.get_saved_paper(int(paper_id))
+    if not paper: raise HTTPException(404, "Paper not found")
+    return paper
+
+@app.post("/upload-syllabus")
+async def upload_syllabus(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    temp_file_path = TEMP_DIR / f"temp_{random.randint(1000, 9999)}_{file.filename}"
+    try:
+        with open(temp_file_path, "wb") as f: f.write(await file.read())
+        units = await extract_units_from_pdf(str(temp_file_path))
+        return {"units": units}
+    finally:
+        if temp_file_path.exists(): temp_file_path.unlink()
+
+@app.post("/generate-questions")
+async def generate_questions(request: Request):
+    try:
+        data = await request.json()
+        exam_type = "Model" if data.get("exam_type") == "Models" else data.get("exam_type")
+        
+        # Filter selected units only
+        doc_chunks = create_document_chunks(data.get("selected_units", []))
+        if not doc_chunks: raise HTTPException(status_code=422, detail="Failed to process content.")
+        
+        # Get selected topics
+        topics = data.get("selected_topics", []) # List[str]
+
+        paper = await generate_question_paper(
+            tuple(doc.page_content for doc in doc_chunks), 
+            data["subject"], 
+            exam_type, 
+            data["difficulty"],
+            topics 
+        )
+        
+        await db_module.insert_question_paper(
+            subject=data["subject"],
+            exam_type=exam_type,
+            difficulty=data["difficulty"],
+            paper=paper
+        )
+        return {"question_paper": paper}
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/regenerate-question")
+async def regenerate_question(req: RegenerateRequest):
+    try:
+        # Create a specific prompt for regeneration
+        q_type = req.current_question.type
+        marks = req.current_question.marks
+        
+        prompt = RUBRIC_BATCH_PROMPT if q_type != "MCQ" else MCQ_BATCH_PROMPT
+        q_label = "MCQ" if q_type == "MCQ" else ("Short Answer" if q_type == "Short Answer" else "Long Essay")
+        
+        # Reuse run_batch_query but ask for 1 question
+        # We pass context as "Regenerate a variation of this question: ..."
+        context_override = f"Original Question: {req.current_question.text}\nTask: Generate a SIMILAR but DISTINCT variation of this question."
+        
+        new_questions = await run_batch_query(
+            prompt, q_label, 1, marks, context_override, req.subject, req.difficulty
+        )
+        
+        if not new_questions: raise ValueError("Failed to regenerate")
+        
+        new_q = new_questions[0]
+        # Map back to Question model
+        return Question(
+            id=req.current_question.id,
+            type=q_type,
+            text=new_q.get("text", "Error"),
+            answer=new_q.get("answer", "Error"),
+            marks=marks
+        )
+    except Exception as e:
+        logger.error(f"Regeneration failed: {e}")
+        raise HTTPException(status_code=500, detail="Regeneration failed")
 # --- DOCX UTILS ---
 import latex2mathml.converter
 from lxml import etree
@@ -652,6 +771,39 @@ async def generate_questions(request: Request):
     except Exception as e:
         logger.error(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/regenerate-question")
+async def regenerate_question(req: RegenerateRequest):
+    try:
+        q_type = req.current_question.type
+        marks = req.current_question.marks
+        
+        prompt = RUBRIC_BATCH_PROMPT if q_type != "MCQ" else MCQ_BATCH_PROMPT
+        q_label = "MCQ" if q_type == "MCQ" else ("Short Answer" if q_type == "Short Answer" else "Long Essay")
+        
+        topic_context = ""
+        if req.topics:
+            topic_context = f"Ensure the question relates to one of these topics: {', '.join(req.topics)}."
+        
+        context_override = f"Original Question: {req.current_question.text}\n{topic_context}\nTask: Generate a SIMILAR but DISTINCT variation of this question. Keep the same marks and difficulty."
+        
+        new_questions = await run_batch_query(
+            prompt, q_label, 1, marks, context_override, req.subject, req.difficulty
+        )
+        
+        if not new_questions: raise ValueError("Failed to regenerate")
+        
+        new_q = new_questions[0]
+        return Question(
+            id=req.current_question.id,
+            type=q_type,
+            text=new_q.get("text", "Error"),
+            answer=new_q.get("answer", "Error"),
+            marks=marks
+        )
+    except Exception as e:
+        logger.error(f"Regeneration failed: {e}")
+        raise HTTPException(status_code=500, detail="Regeneration failed") 
 
 @app.post("/download-paper")
 async def download_paper(data: DownloadRequest):

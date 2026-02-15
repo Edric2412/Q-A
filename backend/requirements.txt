@@ -13,7 +13,7 @@ passlib
 python-jose
 python-dotenv
 transformers
-torch
+
 sentence-transformers
 SentencePiece
 accelerate
@@ -29,3 +29,4 @@ lxml
 pytest
 pytest-asyncio
 httpx
+pdf2image

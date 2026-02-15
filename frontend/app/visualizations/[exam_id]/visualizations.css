@@ -135,6 +135,43 @@
 }
 
 /* --- Main Content --- */
+.viz-print-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.viz-print-btn:hover {
+    background: rgba(99, 102, 241, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.viz-print-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.dark .viz-print-btn {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #818cf8;
+}
+
+.dark .viz-print-btn:hover {
+    background: rgba(99, 102, 241, 0.3);
+}
+
+/* --- Main Content --- */
 .viz-main {
     flex: 1;
     padding: 40px 32px;
@@ -751,5 +788,248 @@
 
     .stat-value {
         font-size: 22px;
+    }
+}
+
+/* --- Print Styles --- */
+@media print {
+
+    /* Enable background graphics */
+    body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Hide UI elements */
+    .viz-header,
+    .viz-print-btn,
+    .viz-back-link,
+    .theme-toggle,
+    .viz-page::before,
+    .viz-page::after {
+        display: none !important;
+    }
+
+    /* Page Setup */
+    @page {
+        margin: 10mm;
+        size: A4 landscape;
+    }
+
+    .viz-page {
+        background: white !important;
+        color: black !important;
+        height: auto !important;
+        width: 100% !important;
+        overflow: visible !important;
+        display: block !important;
+        position: static !important;
+        max-width: none !important;
+    }
+
+    .viz-main {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        overflow: visible !important;
+    }
+
+    /* Reduce Whitespace */
+    .viz-title-banner {
+        border: none !important;
+        background: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        padding: 0 0 10px 0 !important;
+        margin-bottom: 15px !important;
+        border-bottom: 2px solid #000 !important;
+        border-radius: 0 !important;
+    }
+
+    .viz-title-banner h1 {
+        font-size: 20pt !important;
+        color: black !important;
+        margin-bottom: 5px !important;
+    }
+
+    .viz-chip {
+        border: 1px solid #ccc !important;
+        background: none !important;
+        padding: 2px 8px !important;
+        font-size: 9pt !important;
+        color: #333 !important;
+    }
+
+    /* Stats Row - Compact */
+    .stats-row {
+        gap: 10px !important;
+        margin-bottom: 20px !important;
+    }
+
+    .stat-card {
+        padding: 8px !important;
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        background: none !important;
+        border-radius: 8px !important;
+    }
+
+    .stat-label {
+        font-size: 8pt !important;
+    }
+
+    .stat-value {
+        font-size: 16pt !important;
+        margin-bottom: 0 !important;
+    }
+
+    .stat-icon {
+        display: none !important;
+        /* Hide icons to save space */
+    }
+
+    /* Grid Layout - Force Side-by-Side */
+    .viz-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        /* Force 2 columns */
+        gap: 15px !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* Panels */
+    /* Panels */
+    .viz-panel {
+        background: none !important;
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        padding: 10px !important;
+        margin-bottom: 0 !important;
+        border-radius: 8px !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        display: block !important;
+        min-height: 300px !important;
+    }
+
+    .viz-panel.full-width {
+        grid-column: 1 / -1 !important;
+        margin-top: 15px !important;
+        min-height: 350px !important;
+    }
+
+    .viz-panel-title {
+        font-size: 11pt !important;
+        margin-bottom: 10px !important;
+        padding-bottom: 5px !important;
+        border-bottom: 1px solid #eee !important;
+    }
+
+    /* Full Width Item (Per Question Chart) */
+    .viz-panel.full-width {
+        grid-column: 1 / -1 !important;
+        margin-top: 15px !important;
+    }
+
+    /* Ranking & Heatmap Panels */
+    .viz-panel:has(.ranking-table),
+    .viz-panel:has(.heatmap-table) {
+        grid-column: 1 / -1 !important;
+        margin-top: 15px !important;
+    }
+
+    /* Charts */
+    .chart-container {
+        height: 250px !important;
+        /* Increased significantly */
+        width: 100% !important;
+        margin: 0 auto !important;
+        display: block !important;
+        overflow: visible !important;
+    }
+
+    /* Restore flex for donut container */
+    .chart-container.donut-container {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .viz-panel.full-width .chart-container {
+        height: 300px !important;
+        width: 100% !important;
+    }
+
+    /* Tables */
+    .ranking-table th,
+    .ranking-table td,
+    .heatmap-table th,
+    .heatmap-table td {
+        font-size: 9pt !important;
+        padding: 4px !important;
+    }
+
+    /* Preserve Colors */
+    .rank-badge.gold {
+        background-color: rgba(245, 158, 11, 0.2) !important;
+        color: #d97706 !important;
+    }
+
+    .rank-badge.silver {
+        background-color: rgba(148, 163, 184, 0.2) !important;
+        color: #64748b !important;
+    }
+
+    .rank-badge.bronze {
+        background-color: rgba(180, 83, 9, 0.2) !important;
+        color: #b45309 !important;
+    }
+
+    .rank-badge.default {
+        background-color: rgba(99, 102, 241, 0.1) !important;
+        color: #4f46e5 !important;
+    }
+
+    .spark-bar-bg {
+        background-color: #f1f5f9 !important;
+    }
+
+    .spark-bar-fill {
+        background: #6366f1 !important;
+        /* Solid color for print */
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Heatmap Colors - Force Exact */
+    .heatmap-cell {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        border: 1px solid rgba(0, 0, 0, 0.1) !important;
+        /* Add border for contrast */
+    }
+
+    /* Text Colors */
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    span,
+    div,
+    td,
+    th {
+        color: #000 !important;
+    }
+
+    /* Revert specific text colors where background is preserved */
+    .rank-badge,
+    .heatmap-cell {
+        color: inherit !important;
     }
 }

@@ -97,10 +97,23 @@ export async function getSavedPapers(): Promise<SavedPaper[]> {
     return handleResponse<SavedPaper[]>(response);
 }
 
-export async function getSavedPaper(id: string): Promise<SavedPaper> {
-    const response = await fetch(`${API_BASE}/saved-paper/${id}`);
-    return handleResponse<SavedPaper>(response);
+// ... (existing code)
+
+export async function deletePaper(paperId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/delete-paper/${paperId}`, {
+        method: "DELETE",
+    });
+    return handleResponse(response);
 }
+
+export async function deleteEvaluation(examId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/evaluator/delete-evaluation/${examId}`, {
+        method: "DELETE",
+    });
+    return handleResponse(response);
+}
+
+// ... (existing code)
 
 // --- Generator API ---
 export async function getDepartments(): Promise<Department[]> {
@@ -113,7 +126,7 @@ export async function getDetails(department: string): Promise<DepartmentDetails[
     return handleResponse<DepartmentDetails[]>(response);
 }
 
-export async function uploadSyllabus(file: File): Promise<{ units: { unit: string; text: string }[] }> {
+export async function uploadSyllabus(file: File): Promise<{ units: { unit: string; text: string; topics: string[] }[] }> {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -129,10 +142,27 @@ export interface GenerateQuestionsPayload {
     subject: string;
     exam_type: string;
     difficulty: string;
+    selected_topics?: string[];
 }
 
 export async function generateQuestions(payload: GenerateQuestionsPayload): Promise<{ question_paper: GeneratedPaper }> {
     const response = await fetch(`${API_BASE}/generate-questions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    return handleResponse(response);
+}
+
+export interface RegeneratePayload {
+    current_question: Question;
+    subject: string;
+    difficulty: string;
+    topics?: string[];
+}
+
+export async function regenerateQuestion(payload: RegeneratePayload): Promise<Question> {
+    const response = await fetch(`${API_BASE}/regenerate-question`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
