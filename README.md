@@ -102,17 +102,10 @@ flowchart TB
 ```
 
 **Tech Stack:**
-<<<<<<< HEAD
 - **Backend:** FastAPI (Python 3.10+), Gemini 2.5 Flash
 - **Frontend:** Next.js 16, React 19, TypeScript, Framer Motion
 - **Database:** PostgreSQL 16, Neo4j Graph Database (Dockerized)
 - **AI/ML:** Reinforcement Learning (PPO – Stable-Baselines3, Gymnasium), Bayesian Knowledge Tracing, Google Generative AI SDK, Sentence-Transformers (MiniLM)
-=======
-- **Backend:** FastAPI (Python 3.10+), Gemini 3 Flash, Gemini 2.5 Flash
-- **Frontend:** Next.js 16, React 19, TypeScript, Recharts
-- **Database:** PostgreSQL 16 (on Docker)
-- **AI/ML:** LangChain, Google Generative AI, Sentence-Transformers (MiniLM), Reinforcement Learning (PPO – Stable-Baselines3, Gymnasium)
->>>>>>> c6d868641a55b35b95b71b5881447fb090e433aa
 - **Charts:** Recharts (score distributions, per-question analysis, heatmaps)
 - **Document Processing:** PDFPlumber, python-docx, latex2mathml, pytesseract
 
