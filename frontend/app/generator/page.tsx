@@ -141,11 +141,17 @@ export default function GeneratorPage() {
             return;
         }
 
+        if (!subject) {
+            showToast("Please select a Subject first", "error");
+            e.target.value = "";
+            return;
+        }
+
         setUploadedFile(file);
         showLoading("Processing syllabus...");
 
         try {
-            const result = await uploadSyllabus(file);
+            const result = await uploadSyllabus(file, subject);
             setSyllabusUnits(result.units);
 
             // Auto-select all topics initially

@@ -33,3 +33,4 @@ pdf2image
 stable-baselines3
 gymnasium
 shimmy
+neo4j

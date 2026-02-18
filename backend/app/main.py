@@ -13,8 +13,9 @@ import time
 # Load environment variables from backend/.env
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form, status
+from fastapi.responses import RedirectResponse, FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
 
@@ -63,6 +64,16 @@ app.add_middleware(
 
 # --- ROUTERS ---
 app.include_router(learning_routes.router, prefix="/learning")
+app.mount("/evaluator", evaluator_app)
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    error_details = exc.errors()
+    logger.error(f"422 Validation Error: {error_details}")
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": error_details, "body": exc.body},
+    )
 
 # --- Database lifecycle (PostgreSQL via asyncpg) ---
 # --- AUTH CONFIG ---
@@ -138,15 +149,24 @@ async def get_saved_paper(paper_id: str):
     if not paper: raise HTTPException(404, "Paper not found")
     return paper
 
+@app.delete("/delete-paper/{paper_id}")
+async def delete_paper_endpoint(paper_id: str):
+    try:
+        await db_module.delete_paper(int(paper_id))
+        return {"status": "success", "message": "Paper deleted"}
+    except Exception as e:
+        logger.error(f"Error deleting paper {paper_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/upload-syllabus")
-async def upload_syllabus(file: UploadFile = File(...)):
+async def upload_syllabus(file: UploadFile = File(...), subject: str = Form("Syllabus")):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
     temp_file_path = TEMP_DIR / f"temp_{random.randint(1000, 9999)}_{file.filename}"
     try:
         with open(temp_file_path, "wb") as f: f.write(await file.read())
         # Use QG
-        units = await qg.extract_units_from_pdf(str(temp_file_path))
+        units = await qg.extract_units_from_pdf(str(temp_file_path), subject)
         return {"units": units}
     finally:
         if temp_file_path.exists(): temp_file_path.unlink()

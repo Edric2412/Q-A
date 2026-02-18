@@ -45,25 +45,31 @@ async def wait_for_file_active(file):
     logger.info(f"File {file.name} is ACTIVE.")
     return file
 
-async def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str = "gemini-3-flash-preview") -> dict:
+async def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str = "gemini-2.5-flash", authorized_topics: list = None) -> dict:
     """
     Uploads PDF, waits for processing, and grades it using Gemini Vision in one go.
-    Returns a dictionary of results { "1": {"score": X, "feedback": Y}, ... }
+    Returns a dictionary of results { "1": {"score": X, "feedback": Y, "topic": Z}, ... }
     """
     gemini_file = None
     try:
-        # 1. Upload (Upload is sync, but fast)
+        # 1. Upload
         gemini_file = upload_to_gemini(pdf_path)
         
         # 2. Wait
         gemini_file = await wait_for_file_active(gemini_file)
         
         # 3. Construct Prompt
-        # We prompt the model to look at the PDF and the Rubric string.
-        # The Rubric string should contain all questions and their criteria.
-        
+        topics_constraint = ""
+        if authorized_topics:
+            topics_list_str = ", ".join(authorized_topics)
+            topics_constraint = f"""
+            **STRICT TOPIC CONSTRAINT**: You MUST map each question to ONE of the following existing topics from the syllabus:
+            [{topics_list_str}]
+            If a question truly doesn't fit any, pick the closest match. Do NOT invent new topic names.
+            """
+
         prompt = f"""
-        You are an strict academic evaluator. 
+        You are a strict academic evaluator. 
         I have provided a student's answer script (PDF) and a master rubric.
         
         **TASK**:
@@ -73,6 +79,8 @@ async def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str
         4. If a student attempted an "Either/Or" choice, grade the one they answered.
         5. If a question is missing or unreadable, mark it as 0.0 with feedback "Not attempting/Unreadable".
         
+        {topics_constraint}
+
         **RUBRIC**:
         {rubric_text}
         
@@ -88,7 +96,7 @@ async def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str
         **IMPORTANT**: 
         - Return ONLY the JSON. No markdown formatting.
         - Ensure numeric scores are floats (e.g. 4.0, 2.5).
-        - "topic" should be the core academic topic of the question (1-3 words).
+        - "topic" MUST be one of the authorized topics if provided.
         """
         
         # 4. Generate Content

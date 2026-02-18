@@ -11,6 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Stable Baselines3](https://img.shields.io/badge/SB3-PPO-FF6F00?style=for-the-badge&logo=pytorch&logoColor=white)](https://stable-baselines3.readthedocs.io/)
 [![Knowledge Tracing](https://img.shields.io/badge/KT-BKT-purple?style=for-the-badge&logo=analytics&logoColor=white)](https://en.wikipedia.org/wiki/Bayesian_Knowledge_Tracing)
+[![Neo4j](https://img.shields.io/badge/Neo4j-008CC1?style=for-the-badge&logo=neo4j&logoColor=white)](https://neo4j.com/)
 
 **AI-powered question paper generation and automated grading for educational institutions** – A complete RAG-based assessment workflow from syllabus to graded results.
 
@@ -41,10 +42,11 @@ This project provides a **dual-pipeline architecture** for modern educational as
 - 🍩 **Pass/Fail Breakdown** — donut chart visualization
 
 ### 4️⃣ **AI Tutor (Adaptive Learning)**
-- 🧠 **Reinforcement Learning (RL)** — dynamically chooses topics based on student mastery
-- 📈 **Bayesian Knowledge Tracing (BKT)** — tracks probability of concept mastery
-- 💬 **Constructive Feedback** — AI-generated hints and explanations for every answer
-- 🎮 **Gamified UI** — progress bars and difficulty shifts (Easy → Medium → Hard)
+- 🧠 **Reinforcement Learning (RL)** — dynamically chooses topics using PPO (Stable-Baselines3)
+- 📈 **Knowledge Graph (Neo4j)** — maps syllabus prerequisites for logic-based remediation
+- � **Bayesian Knowledge Tracing (BKT)** — tracks probability of concept mastery
+- 💬 **Strict Evaluator** — uses generated rubrics to eliminate AI leniency in grading
+- 🎮 **Gamified UI** — progress bars, mastery zones, and 2.5 Flash-powered tutor
 
 ---
 
@@ -79,33 +81,31 @@ flowchart TB
             end
         end
 
-        subgraph DB["🐘 PostgreSQL :5432"]
+        subgraph DB["Storage Layer"]
             direction LR
-            T1["Users/Students"]
-            T2["Question Papers"]
-            T3["Evaluations"]
-            T4["Learning Logs (RL)"]
+            P["🐘 PostgreSQL :5432"]
+            N["🌐 Neo4j Graph :7687"]
         end
     end
 
     subgraph AI["🤖 AI Models & Embeddings"]
         direction LR
-        Gemini["Gemini 3 Flash"]
-        Flash["Gemini 2.5 Flash"]
+        Flash["Gemini 2.5 Flash (Primary)"]
         Embed["Text Embedding 004"]
         MiniLM["MiniLM-L6-v2 (Local)"]
     end
 
     Frontend -->|REST API| Backend
-    Backend -->|asyncpg| DB
-    Backend -->|LangChain / RL| AI
+    Backend -->|asyncpg| P
+    Backend -->|Cypher| N
+    Backend -->|SDK| AI
 ```
 
 **Tech Stack:**
-- **Backend:** FastAPI (Python 3.10+), Gemini 3 Flash, Gemini 2.5 Flash
-- **Frontend:** Next.js 16, React 19, TypeScript, Recharts
-- **Database:** PostgreSQL 16 (on Docker)
-- **AI/ML:** LangChain, Google Generative AI, Sentence-Transformers (MiniLM)
+- **Backend:** FastAPI (Python 3.10+), Gemini 2.5 Flash
+- **Frontend:** Next.js 16, React 19, TypeScript, Framer Motion
+- **Database:** PostgreSQL 16, Neo4j Graph Database (Dockerized)
+- **AI/ML:** Reinforcement Learning (PPO – Stable-Baselines3, Gymnasium), Bayesian Knowledge Tracing, Google Generative AI SDK, Sentence-Transformers (MiniLM)
 - **Charts:** Recharts (score distributions, per-question analysis, heatmaps)
 - **Document Processing:** PDFPlumber, python-docx, latex2mathml, pytesseract
 
@@ -118,12 +118,14 @@ flowchart TB
 - **Multi-format Questions**: Generates MCQs with options, Short Answers, and Long Essays
 - **Difficulty Levels**: Easy, Medium, Hard with context-aware generation
 - **LaTeX Support**: Mathematical equations rendered natively in Word
+- **Knowledge Graph Sync**: Automatically parses syllabus prerequisites into Neo4j
 - **Rubric Generation**: Automated marking schemes with keyword extraction
 
 ### 🔍 Answer Evaluation
 - **Robust Identity Extraction**: Prioritizes Filename > OCR (Tesseract) > Content to identify students.
 - **Vision PDF Grading**: Direct handwritten PDF evaluation via Gemini Vision.
 - **AI Grading**: Context-aware evaluation against model answers.
+- **Authorized Vocabulary**: Forces AI to use syllabus-accurate topic names from Neo4j to prevent hallucination.
 - **Concept Extraction**: Identifies knowledge gaps per student.
 - **Bulk Processing**: Grade entire classes in minutes.
 - **Student Results UI**: Enhanced dashboard with conditional **Max Marks** display (CIA: 1/4/10 marks, Model: 1/5/8 marks).
@@ -141,10 +143,11 @@ flowchart TB
 
 ### 🧠 Adaptive Learning Tutor
 - **RL Action Selection**: Uses PPO (Proximal Policy Optimization) via Stable Baselines 3 to choose optimal topics.
+- **Knowledge Graph Remediation**: Uses Neo4j to detect "bottleneck" prerequisites when a student fails a concept.
 - **BKT Progression**: Real-time mastery updating using Bayesian Knowledge Tracing.
+- **Strict Mode Evaluation**: Uses generated question rubrics to ensure university-level grading strictness.
 - **High-Fidelity Skeletons**: Modern shimmer-effect loading states for seamless transitions into AI sessions.
 - **Liquid Glass Feedback**: AI feedback presented in a premium "Crystal Pill" badge UI.
-- **Strict Topic Enforcement**: Automatically strips AI hallucinations to ensure progression matches the syllabus.
 - **Manual Progression**: Students review feedback before advancing to the next challenge.
 
 ### 🎨 Modern UI/UX
@@ -172,7 +175,7 @@ cd QP
 # 2. Add your Google API key
 echo 'GOOGLE_API_KEY=your_key_here' > .env
 
-# 3. Start everything (PostgreSQL + Backend + Frontend)
+# 3. Start everything (PostgreSQL + Neo4j + Backend + Frontend)
 docker compose up --build
 ```
 
@@ -183,6 +186,8 @@ That's it! Open `http://localhost:3000` in your browser.
 | Frontend | `http://localhost:3000` | qp-frontend |
 | Backend API | `http://localhost:8000` | qp-backend |
 | PostgreSQL | `localhost:5433` | qp-postgres |
+| Neo4j Browser | `http://localhost:7474` | qp-neo4j |
+| Neo4j Bolt | `localhost:7687` | qp-neo4j |
 
 ### Local Development (without Docker)
 
@@ -281,13 +286,14 @@ The backend API is available at `http://localhost:8000`, with the evaluator moun
 8. **Export Generation** → Excel with per-question feedback columns
 ### 🧠 Adaptive Learning Flow
 
-1. **Session Start** → System fetches BKT mastery vector for student.
-2. **RL Action Selection** → PPO Policy chooses optimal topic bucket (Low/Med/High).
-3. **Context Retrieval** → Fetches concepts from syllabus corresponding to chosen topic.
-4. **Adaptive Questioning** → Generated based on dynamic difficulty (Easy/Medium/Hard).
-5. **Student Response** → AI grades and provides granular feedback.
-6. **BKT Update** → Mastery probability updated based on performance.
-7. **Trajectory Logging** → State/Action/Reward logged for RL policy improvement.
+1. **Session Start** → System fetches BKT mastery vector and Neo4j knowledge graph.
+2. **Bottleneck Detection** → Checks Neo4j for unmastered prerequisites before selecting new topics.
+3. **RL Action Selection** → PPO Policy chooses optimal topic bucket (Low/Med/High).
+4. **Context Retrieval** → Fetches concepts from syllabus corresponding to chosen topic.
+5. **Adaptive Questioning** → Generated based on dynamic difficulty (Easy/Medium/Hard).
+6. **Student Response** → AI grades strictly using the **Session Rubric**.
+7. **BKT Update** → Mastery probability updated based on performance.
+8. **Trajectory Logging** → State/Action/Reward logged for RL policy improvement.
 
 ---
 

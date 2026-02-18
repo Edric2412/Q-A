@@ -24,6 +24,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from services.graph_service import graph_engine
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 
@@ -54,11 +55,11 @@ if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
     # Target Gemini 3 Flash Preview as requested
     try:
-        gemini_model = genai.GenerativeModel('gemini-3-flash-preview')
-        logger.info("SUCCESS: Gemini 3 Flash initialized.")
-    except:
-        logger.warning("Gemini 3 Flash unavailable. Falling back to 2.5 Flash.")
         gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+        logger.info("SUCCESS: Gemini 2.5 Flash initialized.")
+    except:
+        logger.warning("Gemini 2.5 Flash unavailable. Falling back to 1.5 Flash.")
+        gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 else:
     logger.error("ERROR: GEMINI_API_KEY not found.")
     gemini_model = None
@@ -454,10 +455,11 @@ async def upload_files(
 
     return {"message": "Files uploaded successfully", "files": files}
 
-async def extract_topics_metadata(qp_map: Dict[str, Dict]) -> Dict[str, str]:
+async def extract_topics_metadata(qp_map: Dict[str, Dict], authorized_topics: List[str] = None) -> Dict[str, str]:
     """
     Extracts topics for ALL questions in the QP map using a single AI call.
     Returns: {"1": "Calculus", "2": "Algebra", ...}
+    If authorized_topics is provided, it forces the AI to pick from that list.
     """
     if not qp_map or not gemini_model: return {}
     
@@ -467,11 +469,21 @@ async def extract_topics_metadata(qp_map: Dict[str, Dict]) -> Dict[str, str]:
         text = data.get('text', '')[:200] # Truncate likely sufficient
         q_list_str += f"Q{qid}: {text}\n"
         
+    topics_constraint = ""
+    if authorized_topics:
+        topics_list_str = ", ".join(authorized_topics)
+        topics_constraint = f"""
+        **STRICT CONSTRAINT**: You MUST map each question to ONE of the following existing topics from the syllabus:
+        [{topics_list_str}]
+        
+        If a question truly doesn't fit any, pick the closest match. Do NOT invent new topic names.
+        """
+
     prompt = f"""
     Act as an academic classifier. 
     I will provide a list of questions from an exam paper.
-    Identify the core academic TOPIC for each question (e.g. "Neural Networks", "Optimization", "Calculus").
-    Keep topics concise (1-3 words).
+    Identify the core academic TOPIC for each question.
+    {topics_constraint}
     
     QUESTIONS:
     {q_list_str}
@@ -511,9 +523,14 @@ async def evaluate(
             qp_map = parse_docx_table_data(question_paper_path, True)
             key_map = parse_docx_table_data(answer_key_path, False)
             
-            # --- TOPIC EXTRACTION (Centralized) ---
-            logger.info("Extracting Topics from Question Paper...")
-            topic_metadata = await extract_topics_metadata(qp_map)
+            # --- TOPIC EXTRACTION (Centralized & Syllabus-Aware) ---
+            logger.info(f"Fetching Authorized Topics for Subject: {subject or 'General'}...")
+            authorized_topics = []
+            if subject:
+                authorized_topics = await graph_engine.get_subject_topics(subject)
+            
+            logger.info("Extracting Topics from Question Paper (Syncing with Knowledge Graph)...")
+            topic_metadata = await extract_topics_metadata(qp_map, authorized_topics)
             logger.info(f"Extracted Topics: {topic_metadata}")
             
             selected_type = "Model" if exam_type == "Models" else exam_type
@@ -575,7 +592,7 @@ async def evaluate(
                     # Use Gemini 2.0 Flash or 1.5 Flash (User asked for 3, but let's stick to stable/available)
                     # We can try to respect user wish: 'gemini-2.0-flash-exp' or 'gemini-1.5-flash'
                     # The library usually handles model aliases.
-                    vision_results = await grade_pdf_with_vision(s_path, full_rubric_str, model_name="gemini-3-flash-preview")
+                    vision_results = await grade_pdf_with_vision(s_path, full_rubric_str, model_name="gemini-2.5-flash", authorized_topics=authorized_topics)
                     
                     # 3. Process Results
                     marks = {}

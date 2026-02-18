@@ -131,9 +131,10 @@ export async function getDetails(department: string): Promise<DepartmentDetails[
     return handleResponse<DepartmentDetails[]>(response);
 }
 
-export async function uploadSyllabus(file: File): Promise<{ units: { unit: string; text: string; topics: string[] }[] }> {
+export async function uploadSyllabus(file: File, subject: string): Promise<{ units: { unit: string; text: string; topics: string[] }[] }> {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("subject", subject);
 
     const response = await fetch(`${API_BASE}/upload-syllabus`, {
         method: "POST",
@@ -353,6 +354,8 @@ export interface SubmitAnswerPayload {
     topic_index: number;
     topic_name?: string;
     difficulty: string;
+    rubric?: string;
+    correct_answer?: string;
 }
 
 export interface SubmitAnswerResponse {

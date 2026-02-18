@@ -14,6 +14,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 import google.generativeai as genai
+from services.graph_service import graph_engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,22 +29,10 @@ try:
          os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
          genai.configure(api_key=GOOGLE_API_KEY)
     
-    # Model Strategy - 3 Stage Fallback
-    # Primary: 3-flash-preview (Fastest/Newest)
-    # Fallback 1: 2.5-pro (Best Reasoning)
-    # Fallback 2: 2.5-flash (Reliable/Cost-effective)
-    
-    # User requested: gemini-3-flash-preview, gemini-2.5-pro, gemini-2.5-flash
-    # Updated to strict user request.
-    
-    llm_primary = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.7)
-    llm_fallback_1 = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0.7)
-    llm_fallback_2 = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.7)
-
-    # We expose the configured LLM if needed, but primarily use it internally
+    # Updated to raw SDK in run_batch_query
     embedding = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
 except Exception as e:
-    logger.error(f"Failed to initialize Google AI Models (in question_generator): {e}")
+    logger.error(f"Failed to initialize embeddings: {e}")
 
 # --- PROMPTS ---
 MCQ_BATCH_PROMPT = PromptTemplate.from_template("""
@@ -174,10 +163,10 @@ def parse_json_output(response_text: str) -> List[Dict[str, str]]:
         logger.error(f"Parse error: {e}")
         return []
 
-async def run_batch_query(prompt: PromptTemplate, q_type: str, num: int, marks: int, context: str, subject: str, difficulty: str, topics: List[str] = None) -> List[Dict[str, str]]:
+async def run_batch_query(prompt_template: PromptTemplate, q_type: str, num: int, marks: int, context: str, subject: str, difficulty: str, topics: List[str] = None) -> List[Dict[str, str]]:
     if num <= 0: return []
     try:
-        logger.info(f"Generating {num} {q_type} questions...")
+        logger.info(f"Generating {num} {q_type} questions using raw SDK...")
         
         topics_instruction = ""
         if topics:
@@ -193,39 +182,41 @@ async def run_batch_query(prompt: PromptTemplate, q_type: str, num: int, marks: 
             "context": context,
             "topics_instruction": topics_instruction
         }
+        
+        # Format prompt using the LangChain template but we'll send it raw
+        full_prompt = prompt_template.format(**input_vars)
 
-        # Helper to execute chain
-        async def execute_chain(llm, name):
-            logger.info(f"Attempting generation with {name}...")
-            chain = prompt | llm | StrOutputParser()
-            return await chain.ainvoke(input_vars)
+        models_to_try = [
+            ("gemini-2.5-flash", "PRIMARY"),
+            ("gemini-1.5-pro", "FALLBACK 1"),
+            ("gemini-1.5-flash", "FALLBACK 2")
+        ]
 
-        try:
-            # 1. Try Primary
-            response = await execute_chain(llm_primary, "PRIMARY (3-Flash-Preview)")
-            return parse_json_output(response)
-        except Exception as e:
-            err_str = str(e)
-            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "503" in err_str:
-                logger.warning(f"Primary model exhausted/failed. Switching to FALLBACK 1...")
-                try:
-                    # 2. Try Fallback 1
-                    response = await execute_chain(llm_fallback_1, "FALLBACK 1 (2.5-Pro)")
-                    return parse_json_output(response)
-                except Exception as e2:
-                    err_str2 = str(e2)
-                    if "429" in err_str2 or "RESOURCE_EXHAUSTED" in err_str2 or "503" in err_str2:
-                        logger.warning(f"Fallback 1 exhausted/failed. Switching to FALLBACK 2...")
-                        # 3. Try Fallback 2
-                        response = await execute_chain(llm_fallback_2, "FALLBACK 2 (2.5-Flash)")
-                        return parse_json_output(response)
-                    else:
-                        raise e2
-            else:
-                raise e 
+        for model_name, label in models_to_try:
+            try:
+                logger.info(f"Attempting {label} with {model_name}...")
+                model = genai.GenerativeModel(model_name)
+                response = await model.generate_content_async(full_prompt)
+                
+                if response and response.text:
+                    questions = parse_json_output(response.text)
+                    if questions:
+                        return questions
+                
+                logger.warning(f"{label} returned empty or invalid response. Trying next...")
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "503" in err_str:
+                    logger.warning(f"{label} exhausted or service unavailable. Trying next...")
+                    continue
+                else:
+                    logger.error(f"{label} failed with unexpected error: {e}")
+                    continue
+        
+        return []
 
     except Exception as e:
-        logger.error(f"Error in batch query (All models failed): {e}")
+        logger.error(f"Error in batch query: {e}")
         return []
 
 def clean_json_string(text: str) -> str:
@@ -258,21 +249,70 @@ def clean_json_string(text: str) -> str:
     except:
         return text
 
-async def extract_topics_from_text(text: str) -> List[str]:
+async def extract_topics_from_text(text: str, subject: str = "General") -> List[str]:
     try:
-        if not text or len(text) < 50: return []
+        if not text: return []
+        if len(text) < 30:
+            logger.warning(f"Text too short for topic extraction ({len(text)} chars). Text: {text}")
+            return []
+            
         prompt = f"""
-        Identify the key topics/concepts in the following syllabus unit text.
+        Identify the key topics/concepts in the following syllabus unit text for the subject {subject}.
         Return strictly a JSON list of strings, e.g. ["Topic 1", "Topic 2"].
         Text: {text[:2000]}...
         """
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = await model.generate_content_async(prompt)
         cleaned = clean_json_string(response.text) 
-        return json.loads(cleaned)
+        topics = json.loads(cleaned)
+        
+        # Background sync to Neo4j so it doesn't fail the main request
+        if topics:
+            import asyncio
+            for t in topics:
+                asyncio.create_task(graph_engine.create_topic(subject, t))
+            
+        return topics
     except Exception as e:
         logger.error(f"Topic extraction failed: {e}")
+        # Return empty list only if Gemini/JSON fails, but keep units
         return []
+
+async def sync_knowledge_graph(subject: str, topics: List[str]):
+    """
+    Highly automated: Uses LLM to determine prerequisites for topics and populates Neo4j.
+    """
+    if not topics or not graph_engine.driver: return
+    
+    try:
+        topic_str = ", ".join(topics)
+        prompt = f"""
+        For the subject '{subject}', analyze these topics: {topic_str}.
+        For each topic, identify its direct PREREQUISITES from within the same subject.
+        Return strictly a JSON list of objects:
+        [
+          {{"topic": "Name", "prerequisites": ["Pre1", "Pre2"]}},
+          ...
+        ]
+        If no prerequisites, return empty list for that topic.
+        """
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = await model.generate_content_async(prompt)
+        cleaned = clean_json_string(response.text)
+        mapping = json.loads(cleaned)
+        
+        for item in mapping:
+            t_name = item.get("topic")
+            prereqs = item.get("prerequisites", [])
+            if t_name:
+                await graph_engine.create_topic(subject, t_name)
+                for p in prereqs:
+                    await graph_engine.create_topic(subject, p)
+                    await graph_engine.add_prerequisite(t_name, p)
+                    
+        logger.info(f"Knowledge Graph synced for {len(topics)} topics in {subject}.")
+    except Exception as e:
+        logger.error(f"KG Sync failed: {e}")
 
 def ocr_pdf_with_tesseract(pdf_path: str) -> str:
     try:
@@ -287,7 +327,10 @@ def ocr_pdf_with_tesseract(pdf_path: str) -> str:
         logger.error(f"Tesseract OCR failed: {e}")
         return ""
 
-async def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, Any]]:
+async def extract_units_and_topics_unified(pdf_path: str, subject: str = "Syllabus") -> List[Dict[str, Any]]:
+    """
+    Consolidates Unit and Topic extraction into a SINGLE Gemini call.
+    """
     try:
         full_text = ""
         try:
@@ -301,25 +344,51 @@ async def extract_units_from_pdf(pdf_path: str) -> List[Dict[str, Any]]:
             full_text = ocr_pdf_with_tesseract(pdf_path)
             if not full_text: return []
 
-        unit_pattern = re.compile(
-            r"((?:Unit|Module)[\s:-]+(?:(?:\d+)|(?:\b[IVX]+\b)).*?(?=(?:Unit|Module)[\s:-]+(?:(?:\d+)|(?:\b[IVX]+\b))|$))", 
-            re.DOTALL | re.IGNORECASE
-        )
-        matches = unit_pattern.findall(full_text)
-        if not matches:
-             topics = await extract_topics_from_text(full_text)
-             return [{"unit": "Full Syllabus", "text": full_text, "topics": topics}]
-
-        results = []
-        for idx, match in enumerate(matches):
-            txt = match.strip()
-            if not txt: continue
-            topics = await extract_topics_from_text(txt) 
-            results.append({"unit": f"Unit {idx+1}", "text": txt, "topics": topics})
-        return results
+        logger.info("Extracting Units and Topics in a single Gemini (3-Flash) call...")
+        
+        prompt = f"""
+        Act as a syllabus parser. Analyze the following syllabus text.
+        1. Identify the Units/Modules/Chapters (e.g., Unit 1, Unit 2).
+        2. For each Unit, provide its full descriptive text as found in the syllabus.
+        3. For each Unit, extract a list of 5-8 specific key topics or concepts.
+        
+        Return strictly a valid JSON list of objects:
+        [
+          {{
+            "unit": "Unit 1: Name",
+            "text": "Full text of unit 1 content...",
+            "topics": ["Topic A", "Topic B", ...]
+          }},
+          ...
+        ]
+        
+        Syllabus Text:
+        {full_text[:8000]}
+        """
+        
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = await model.generate_content_async(prompt)
+        cleaned = clean_json_string(response.text)
+        units_data = json.loads(cleaned)
+        
+        # Background sync to Knowledge Graph
+        if units_data:
+            import asyncio
+            all_topics = []
+            for u in units_data:
+                all_topics.extend(u.get("topics", []))
+            
+            # Use passed subject name for Knowledge Graph isolation
+            asyncio.create_task(sync_knowledge_graph(subject, all_topics))
+            
+        return units_data
     except Exception as e:
-        logger.error(f"Error reading PDF {pdf_path}: {e}")
+        logger.error(f"Unified extraction failed: {e}")
         return []
+
+# Maintain compatibility with upload-syllabus route
+async def extract_units_from_pdf(pdf_path: str, subject: str = "Syllabus") -> List[Dict[str, Any]]:
+    return await extract_units_and_topics_unified(pdf_path, subject)
 
 def create_document_chunks(units: List[Dict[str, Any]]) -> List[Any]:
     texts = [unit["text"] for unit in units if unit.get("text")]
@@ -341,16 +410,37 @@ async def generate_question_paper(docs_content: tuple, subject: str, pattern: st
     
     context_sample = "\n---\n".join(random.sample(list(docs_content), min(len(docs_content), 5)))
     paper = {"MCQ": [], "Short": [], "Long": []}
+    q_id_counter = 1
 
-    paper["MCQ"] = await run_batch_query(MCQ_BATCH_PROMPT, "MCQ", num_mcq, marks_mcq, context_sample, subject, difficulty, topics)
-    paper["Short"] = await run_batch_query(RUBRIC_BATCH_PROMPT, "Short Answer", num_short * 2, marks_short, context_sample, subject, difficulty, topics)
-    paper["Long"] = await run_batch_query(RUBRIC_BATCH_PROMPT, "Long Essay", num_long * 2, marks_long, context_sample, subject, difficulty, topics)
+    # Generate sections
+    raw_mcqs = await run_batch_query(MCQ_BATCH_PROMPT, "MCQ", num_mcq, marks_mcq, context_sample, subject, difficulty, topics)
+    for q in raw_mcqs:
+        if isinstance(q, dict):
+            q.update({"id": q_id_counter, "type": "MCQ", "marks": marks_mcq})
+            paper["MCQ"].append(q)
+            q_id_counter += 1
 
-    for cat in ["MCQ", "Short", "Long"]:
-        paper[cat] = [item for item in paper[cat] if isinstance(item, dict)]
+    raw_shorts = await run_batch_query(RUBRIC_BATCH_PROMPT, "Short Answer", num_short * 2, marks_short, context_sample, subject, difficulty, topics)
+    for q in raw_shorts:
+        if isinstance(q, dict):
+            q.update({"id": q_id_counter, "type": "Short Answer", "marks": marks_short})
+            paper["Short"].append(q)
+            q_id_counter += 1
+
+    raw_longs = await run_batch_query(RUBRIC_BATCH_PROMPT, "Long Essay", num_long * 2, marks_long, context_sample, subject, difficulty, topics)
+    for q in raw_longs:
+        if isinstance(q, dict):
+            q.update({"id": q_id_counter, "type": "Long Essay", "marks": marks_long})
+            paper["Long"].append(q)
+            q_id_counter += 1
     
-    for item in paper["MCQ"]: item["marks"] = marks_mcq
-    for item in paper["Short"]: item["marks"] = marks_short
-    for item in paper["Long"]: item["marks"] = marks_long
+    # --- PHASE 3: Automated Graph Ingestion ---
+    # Trigger background sync of topics and prerequisites
+    if topics:
+        try:
+            import asyncio
+            asyncio.create_task(sync_knowledge_graph(subject, topics))
+        except Exception as ge:
+            logger.error(f"Failed to trigger KG Sync: {ge}")
         
     return paper

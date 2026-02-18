@@ -56,7 +56,8 @@ export default function GuidedLearning({ initialState, studentId }: GuidedLearni
                 answer: answer,
                 topic_index: topicIndex,
                 topic_name: topicName,
-                difficulty: difficulty
+                difficulty: difficulty,
+                rubric: currentQuestion?.answer
             });
 
             setScore(response.score);
@@ -98,20 +99,18 @@ export default function GuidedLearning({ initialState, studentId }: GuidedLearni
             {/* --- SIDEBAR (LEFT) --- */}
             <div className="app-sidebar">
                 <div className="sidebar-content custom-scrollbar">
-                    <div className="text-xs font-bold uppercase tracking-widest mb-6 flex items-center gap-2 opacity-60">
-                        <BarChart2 size={12} /> Mastery Levels
+                    <div className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 opacity-60">
+                        <BarChart2 size={12} /> Mastery Zones
                     </div>
-                    <div className="space-y-4">
-                        {mastery.map((m, idx) => {
-                            const displayName = availableTopics[idx] || `Topic ${idx + 1}`;
-                            const isCurrent = idx === topicIndex;
+                    <div className="space-y-4 mb-8">
+                        {["Foundational", "Core Concepts", "Advanced"].map((zone, idx) => {
+                            const m = mastery[idx] || 0.5;
                             return (
-                                <div key={idx} className={`topic-item ${isCurrent ? "active" : "inactive"}`}>
+                                <div key={idx} className="topic-item inactive">
                                     <div className="topic-label">
-                                        <span className="truncate max-w-[150px]">
-                                            {displayName}
+                                        <span className="text-[11px] font-medium opacity-80 uppercase tracking-tight">
+                                            {zone}
                                         </span>
-                                        {isCurrent && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>}
                                     </div>
                                     <div className="progress-track">
                                         <motion.div
@@ -125,6 +124,21 @@ export default function GuidedLearning({ initialState, studentId }: GuidedLearni
                                 </div>
                             );
                         })}
+                    </div>
+
+                    <div className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 opacity-60">
+                        <BookOpen size={12} /> Current Focus
+                    </div>
+                    <div className="topic-item active">
+                        <div className="topic-label">
+                            <span className="font-semibold text-sm truncate">
+                                {topicName}
+                            </span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
+                        </div>
+                        <div className="text-[10px] opacity-50 mt-1">
+                            Topic {topicIndex + 1} of {availableTopics.length}
+                        </div>
                     </div>
                 </div>
 
