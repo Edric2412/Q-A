@@ -9,6 +9,8 @@
 [![Google AI](https://img.shields.io/badge/Google_Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Stable Baselines3](https://img.shields.io/badge/SB3-PPO-FF6F00?style=for-the-badge&logo=pytorch&logoColor=white)](https://stable-baselines3.readthedocs.io/)
+[![Knowledge Tracing](https://img.shields.io/badge/KT-BKT-purple?style=for-the-badge&logo=analytics&logoColor=white)](https://en.wikipedia.org/wiki/Bayesian_Knowledge_Tracing)
 
 **AI-powered question paper generation and automated grading for educational institutions** – A complete RAG-based assessment workflow from syllabus to graded results.
 
@@ -38,6 +40,12 @@ This project provides a **dual-pipeline architecture** for modern educational as
 - 🗺️ **Score Heatmap** — student × question color-coded grid
 - 🍩 **Pass/Fail Breakdown** — donut chart visualization
 
+### 4️⃣ **AI Tutor (Adaptive Learning)**
+- 🧠 **Reinforcement Learning (RL)** — dynamically chooses topics based on student mastery
+- 📈 **Bayesian Knowledge Tracing (BKT)** — tracks probability of concept mastery
+- 💬 **Constructive Feedback** — AI-generated hints and explanations for every answer
+- 🎮 **Gamified UI** — progress bars and difficulty shifts (Easy → Medium → Hard)
+
 ---
 
 ## 🏗️ Architecture
@@ -61,39 +69,43 @@ flowchart TB
                 G2["RAG Generation"]
                 G3["DOCX Export"]
             end
-            subgraph EvalAPI["Evaluator API /evaluator"]
+            subgraph EvalAPI["Evaluator API"]
                 E1["Vision PDF Grading"]
                 E2["AI Grading"]
-                E3["Performance Analytics"]
+            end
+            subgraph LearnAPI["Adaptive Tutor API"]
+                L1["RL Policy Engine"]
+                L2["BKT Mastery Tracking"]
             end
         end
 
         subgraph DB["🐘 PostgreSQL :5432"]
             direction LR
-            T1["Users"]
+            T1["Users/Students"]
             T2["Question Papers"]
             T3["Evaluations"]
-            T4["Students"]
+            T4["Learning Logs (RL)"]
         end
     end
 
-    subgraph AI["🤖 External APIs"]
+    subgraph AI["🤖 AI Models & Embeddings"]
         direction LR
-        Gemini["Google Gemini 2.5 Flash"]
-        Vision["Gemini Vision"]
-        MiniLM["MiniLM-L6-v2"]
+        Gemini["Gemini 3 Flash"]
+        Flash["Gemini 2.5 Flash"]
+        Embed["Text Embedding 004"]
+        MiniLM["MiniLM-L6-v2 (Local)"]
     end
 
     Frontend -->|REST API| Backend
     Backend -->|asyncpg| DB
-    Backend -->|LangChain| AI
+    Backend -->|LangChain / RL| AI
 ```
 
 **Tech Stack:**
-- **Backend:** FastAPI (Python 3.10+), Google Gemini 2.5 Flash / 3.0 Flash Preview
+- **Backend:** FastAPI (Python 3.10+), Gemini 3 Flash, Gemini 2.5 Flash
 - **Frontend:** Next.js 16, React 19, TypeScript, Recharts
-- **Database:** PostgreSQL 16 (on Docker) with asyncpg driver
-- **AI/ML:** LangChain, Google Generative AI Embeddings
+- **Database:** PostgreSQL 16 (on Docker)
+- **AI/ML:** LangChain, Google Generative AI, Sentence-Transformers (MiniLM)
 - **Charts:** Recharts (score distributions, per-question analysis, heatmaps)
 - **Document Processing:** PDFPlumber, python-docx, latex2mathml, pytesseract
 
@@ -114,6 +126,7 @@ flowchart TB
 - **AI Grading**: Context-aware evaluation against model answers.
 - **Concept Extraction**: Identifies knowledge gaps per student.
 - **Bulk Processing**: Grade entire classes in minutes.
+- **Student Results UI**: Enhanced dashboard with conditional **Max Marks** display (CIA: 1/4/10 marks, Model: 1/5/8 marks).
 - **Excel Reports**: Downloadable results with per-question feedback.
 - **Record Management**: Delete specific evaluation records directly from UI.
 
@@ -125,6 +138,14 @@ flowchart TB
 - **Student Rankings**: Leaderboard with gradient performance bars.
 - **Score Heatmap**: Color-coded student × question grid.
 - **Pass/Fail Donut**: Visual breakdown of pass rates.
+
+### 🧠 Adaptive Learning Tutor
+- **RL Action Selection**: Uses PPO (Proximal Policy Optimization) via Stable Baselines 3 to choose optimal topics.
+- **BKT Progression**: Real-time mastery updating using Bayesian Knowledge Tracing.
+- **High-Fidelity Skeletons**: Modern shimmer-effect loading states for seamless transitions into AI sessions.
+- **Liquid Glass Feedback**: AI feedback presented in a premium "Crystal Pill" badge UI.
+- **Strict Topic Enforcement**: Automatically strips AI hallucinations to ensure progression matches the syllabus.
+- **Manual Progression**: Students review feedback before advancing to the next challenge.
 
 ### 🎨 Modern UI/UX
 - **macOS Liquid Glass**: Premium translucent design with backdrop blur, specular highlights, and glass refraction borders.
@@ -258,6 +279,15 @@ The backend API is available at `http://localhost:8000`, with the evaluator moun
 6. **Mark Allocation** → Per-question scoring with feedback
 7. **Analytics** → Score distributions, heatmaps, rankings
 8. **Export Generation** → Excel with per-question feedback columns
+### 🧠 Adaptive Learning Flow
+
+1. **Session Start** → System fetches BKT mastery vector for student.
+2. **RL Action Selection** → PPO Policy chooses optimal topic bucket (Low/Med/High).
+3. **Context Retrieval** → Fetches concepts from syllabus corresponding to chosen topic.
+4. **Adaptive Questioning** → Generated based on dynamic difficulty (Easy/Medium/Hard).
+5. **Student Response** → AI grades and provides granular feedback.
+6. **BKT Update** → Mastery probability updated based on performance.
+7. **Trajectory Logging** → State/Action/Reward logged for RL policy improvement.
 
 ---
 
@@ -269,16 +299,15 @@ QP/
 │   ├── .env                 # Environment variables
 │   ├── requirements.txt     # Python dependencies
 │   ├── app/
-│   │   ├── main.py          # Generator API
-│   │   ├── main2.py         # Evaluator API  
-│   │   ├── database.py      # PostgreSQL async pool
-│   │   ├── vision_utils.py  # Gemini Vision grading
-│   │   ├── schema.sql       # Database schema
-│   │   ├── MML2OMML.xsl     # Math transformation
+│   │   ├── main.py          # Main FastAPI entry
+│   │   ├── core/            # Database & Core Logic
+│   │   ├── services/        # AI, RL & Generation logic
+│   │   ├── routers/         # API Route Handlers
+│   │   ├── resources/       # Models, XSLT, static assets
+│   │   ├── utils/           # Shared utility functions
+│   │   ├── temp/            # Temporary exports
 │   │   └── templates/       # DOCX templates
-│   └── scripts/
-│       ├── migrate_data.py  # Migration script
-│       └── fix_details.py   # Data fix utilities
+│   └── scripts/             # Maintenance & migration scripts
 │
 ├── frontend/                # ⚛️ Next.js App
 │   ├── app/                 # Pages
@@ -340,64 +369,56 @@ erDiagram
         SERIAL id PK
         VARCHAR email UK
         VARCHAR password
-        TIMESTAMP created_at
-    }
-    departments {
-        SERIAL id PK
-        VARCHAR value UK
-        VARCHAR label
-    }
-    details {
-        SERIAL id PK
-        VARCHAR department FK
-        JSONB batches
-        JSONB semesters
-        JSONB exams
-        JSONB subjects
     }
     students {
         SERIAL id PK
-        VARCHAR department FK
-        VARCHAR batch
-        VARCHAR roll_no
+        VARCHAR roll_no UK
         VARCHAR name
-        TIMESTAMP created_at
+        VARCHAR email
     }
     question_papers {
         SERIAL id PK
         VARCHAR subject
-        VARCHAR exam_type
-        VARCHAR difficulty
-        TIMESTAMP created_at
         JSONB paper
     }
     evaluations {
         SERIAL id PK
-        VARCHAR roll_no
+        VARCHAR roll_no FK
         VARCHAR exam_id
         JSONB marks
-        JSONB feedback
         DECIMAL total
-        TIMESTAMP timestamp
-        VARCHAR subject
-        VARCHAR batch
-        VARCHAR department FK
-        VARCHAR semester
+        VARCHAR exam_type
     }
-    departments ||--o{ details : "FK: department"
-    departments ||--o{ students : "FK: department"
-    departments ||--o{ evaluations : "FK: department"
-    question_papers ||--o{ evaluations : "graded_by"
+    learning_sessions {
+        SERIAL id PK
+        VARCHAR session_id UK
+        INT student_id FK
+        VARCHAR subject
+    }
+    learning_logs {
+        SERIAL id PK
+        VARCHAR session_id FK
+        INT student_id FK
+        VARCHAR topic
+        FLOAT score
+        INT action_taken
+    }
+
+    users ||--o{ learning_sessions : "starts"
+    learning_sessions ||--o{ learning_logs : "records"
+    users ||--o{ learning_logs : "records"
+    students ||--o{ evaluations : "submits"
 ```
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `users` | Authentication | `email`, `password` (bcrypt) |
-| `departments` | Dropdown values | `value`, `label` |
-| `details` | Batch/semester/subject config per department | JSONB arrays for `batches`, `semesters`, `subjects` |
-| `students` | Student roster per dept+batch | `roll_no`, `name`, unique on `(department, batch, roll_no)` |
-| `question_papers` | Generated question papers | Full paper stored as `JSONB` |
-| `evaluations` | Grading results per student | `marks` and `feedback` as JSONB maps, `total` score |
+| `users` | Auth | `email`, `password` |
+| `students` | Roster | `roll_no`, `email` (linked to user) |
+| `learning_sessions` | Adaptive Sessions | `session_id`, `student_id` |
+| `learning_logs` | RL Training Data | `session_id`, `topic`, `score`, `reward` |
+| `student_progress` | Mastery Map | `student_id`, `topic`, `mastery` |
+| `question_papers` | Generated Papers | `subject`, `paper` (JSONB) |
+| `evaluations` | Grading Results | `roll_no`, `exam_id`, `total`, `exam_type` |
 
 ---
 

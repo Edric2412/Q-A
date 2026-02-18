@@ -13,7 +13,7 @@ from pathlib import Path
 # --- Third Party Imports ---
 import docx
 import pdfplumber
-import database as db_module
+import core.database as db_module
 import google.generativeai as genai
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment
@@ -103,7 +103,7 @@ class MarkUpdateRequest(BaseModel):
 # --- Helper Functions ---
 
 
-from vision_utils import grade_pdf_with_vision, extract_first_page_text_ocr
+from utils.vision_utils import grade_pdf_with_vision, extract_first_page_text_ocr
 
 def parse_docx_table_data(file_path: str, is_question_paper: bool = False) -> Dict[str, Dict]:
     doc = docx.Document(file_path)
@@ -332,10 +332,10 @@ async def grade_batch_with_gemini(batch_data: List[Dict]) -> Dict[str, Dict[str,
         
     prompt += """
     OUTPUT: Return strictly a valid JSON object. 
-    Keys are IDs. Values are OBJECTS with 'score' and 'feedback'.
+    Keys are IDs. Values are OBJECTS with 'score', 'feedback', and 'topic'.
     Example: {
-        "11": {"score": 3.5, "feedback": "Correct definition but missed keywords."}, 
-        "12": {"score": 0.0, "feedback": "Label '12a' mismatch. Answered regarding Option B."}
+        "11": {"score": 3.5, "feedback": "Correct definition but missed keywords.", "topic": "Neural Networks"}, 
+        "12": {"score": 0.0, "feedback": "Label '12a' mismatch.", "topic": "Optimization"}
     }
     Do NOT use Markdown. Just the JSON string.
     """
@@ -358,16 +358,19 @@ async def grade_batch_with_gemini(batch_data: List[Dict]) -> Dict[str, Dict[str,
                     if isinstance(v, dict):
                         raw_score = float(v.get("score", 0.0))
                         feedback = v.get("feedback", "No feedback provided.")
+                        topic = v.get("topic", "Unknown Topic")
                     else:
                         raw_score = float(v)
                         feedback = "No feedback provided."
+                        topic = "Unknown Topic"
                     
                     final_results[k] = {
                         "score": round(raw_score * 2) / 2,  # Round to nearest 0.5
-                        "feedback": feedback
+                        "feedback": feedback,
+                        "topic": topic
                     }
                 except:
-                    final_results[k] = {"score": 0.0, "feedback": "Error parsing AI response"}
+                    final_results[k] = {"score": 0.0, "feedback": "Error parsing AI response", "topic": "Unknown Topic"}
             return final_results
         except Exception as e:
             logger.error(f"JSON Parse Error: {e}")
@@ -451,6 +454,43 @@ async def upload_files(
 
     return {"message": "Files uploaded successfully", "files": files}
 
+async def extract_topics_metadata(qp_map: Dict[str, Dict]) -> Dict[str, str]:
+    """
+    Extracts topics for ALL questions in the QP map using a single AI call.
+    Returns: {"1": "Calculus", "2": "Algebra", ...}
+    """
+    if not qp_map or not gemini_model: return {}
+    
+    # Construct Prompt
+    q_list_str = ""
+    for qid, data in qp_map.items():
+        text = data.get('text', '')[:200] # Truncate likely sufficient
+        q_list_str += f"Q{qid}: {text}\n"
+        
+    prompt = f"""
+    Act as an academic classifier. 
+    I will provide a list of questions from an exam paper.
+    Identify the core academic TOPIC for each question (e.g. "Neural Networks", "Optimization", "Calculus").
+    Keep topics concise (1-3 words).
+    
+    QUESTIONS:
+    {q_list_str}
+    
+    OUTPUT:
+    Return strictly a valid JSON object. Keys are QIDs (e.g. "1", "11"). Values are the Topic strings.
+    Example: {{"1": "Calculus", "11": "Neural Networks"}}
+    """
+    
+    try:
+        response = await call_gemini_api_safe(prompt)
+        if response:
+            clean = clean_json_string(response.text.replace("```json", "").replace("```", "").strip())
+            return json.loads(clean)
+    except Exception as e:
+        logger.error(f"Topic Extraction Failed: {e}")
+    
+    return {}
+
 @evaluator_app.post("/evaluate")
 async def evaluate(
     exam_id: str = Form(...),
@@ -470,6 +510,11 @@ async def evaluate(
             
             qp_map = parse_docx_table_data(question_paper_path, True)
             key_map = parse_docx_table_data(answer_key_path, False)
+            
+            # --- TOPIC EXTRACTION (Centralized) ---
+            logger.info("Extracting Topics from Question Paper...")
+            topic_metadata = await extract_topics_metadata(qp_map)
+            logger.info(f"Extracted Topics: {topic_metadata}")
             
             selected_type = "Model" if exam_type == "Models" else exam_type
             schema = EXAM_PATTERNS.get(selected_type, EXAM_PATTERNS["CIA"])
@@ -535,18 +580,31 @@ async def evaluate(
                     # 3. Process Results
                     marks = {}
                     feedback = {}
+                    topics = {}
                     total_score = 0
                     
                     if vision_results:
                         for q_id, res in vision_results.items():
                             # clean key "11" -> "Q11"
-                            key = q_id if q_id.startswith("Q") else f"Q{q_id}"
+                            clean_id = q_id.replace("Q", "")
+                            key = f"Q{clean_id}"
                             
                             score = float(res.get("score", 0.0))
                             fb = res.get("feedback", "")
                             
                             marks[key] = score
                             feedback[key] = fb
+                            
+                            # Prioritize specific topic from Vision AI (which sees the specific answer choice)
+                            # Fallback to centralized topic metadata
+                            specific_topic = res.get("topic", "Unknown")
+                            central_topic = topic_metadata.get(clean_id, "General")
+                            
+                            if specific_topic != "Unknown":
+                                topics[key] = specific_topic
+                            else:
+                                topics[key] = central_topic
+                            
                             total_score += score
                     else:
                         logger.error(f"Vision grading returned empty for {roll_no}")
@@ -570,6 +628,7 @@ async def evaluate(
                     
                     marks = {}
                     feedback = {}  # Store feedback per question
+                    topics = {}
                     total_score = 0
                     master_batch = []
     
@@ -591,6 +650,7 @@ async def evaluate(
                                 feedback[f"Q{q_id}"] = f"Incorrect. Correct answer: {model_char}"
                             
                             marks[f"Q{q_id}"] = score
+                            topics[f"Q{q_id}"] = topic_metadata.get(q_id, "General") # Use Centralized Metadata
                             total_score += score
     
                     # --- 2. AI PREPARATION: All Descriptive Questions (Master Batch) ---
@@ -619,11 +679,22 @@ async def evaluate(
                         # Distribute scores and feedback
                         for item in master_batch:
                             qid = item['id']
-                            result_data = ai_results.get(qid, {"score": 0.0, "feedback": ""})
+                            result_data = ai_results.get(qid, {"score": 0.0, "feedback": "", "topic": "Unknown"})
                             
                             final_val = float(result_data.get("score", 0.0))
                             marks[f"Q{qid}"] = final_val
                             feedback[f"Q{qid}"] = result_data.get("feedback", "")
+                            
+                            # Use Centralized Metadata + Fallback to AI result
+                            # EDIT: Prioritize AI result (specific to student answer for choice questions)
+                            central_topic = topic_metadata.get(qid)
+                            ai_topic = result_data.get("topic", "Unknown")
+                            
+                            if ai_topic != "Unknown":
+                                topics[f"Q{qid}"] = ai_topic
+                            else:
+                                topics[f"Q{qid}"] = central_topic if central_topic else "General"
+                            
                             total_score += final_val
                 
                 # --- Finish Student (Include Feedback & Metadata) ---
@@ -632,13 +703,15 @@ async def evaluate(
                     "exam_id": exam_id, 
                     "marks": marks, 
                     "feedback": feedback,
+                    "topics": topics,
                     "total": round(total_score, 2), 
                     "timestamp": datetime.datetime.utcnow().isoformat(),
                     # Store Metadata
                     "subject": subject,
                     "batch": batch,
                     "department": department,
-                    "semester": semester
+                    "semester": semester,
+                    "exam_type": exam_type
                 }
                 await db_module.insert_evaluation(res)
                 res["_id"] = str(res.get("_id", ""))
@@ -697,62 +770,85 @@ async def export_excel(exam_id: str):
         evals_raw = await db_module.get_evaluation_results(exam_id)
         if not evals_raw: raise HTTPException(404, detail="No data found")
         
+        # Determine Exam Pattern (CIA vs Model) from the first record metadata if available, 
+        # or guess based on question count/keys.
+        # Ideally, we should store 'exam_type' in evaluations table, but it's not strictly there.
+        # However, we can infer Max Score from Question Number.
+        
+        # LOGIC:
+        # CIA: Q1-10 (1), Q11-15 (4), Q16-17 (10)
+        # Model: Q1-10 (1), Q11-15 (5), Q16-20 (8)
+        
+        # Let's try to detect if it's CIA or Model based on Q11-15 max scores? 
+        # Actually, the user rules are explicit. But we don't know the Exam Type for sure here unless we look at the range of questions present.
+        # If Q18 exist -> Likely Model (since CIA stops at 17).
+        # Let's check keys of the first student.
+        
+        first_keys = evals_raw[0]["marks"].keys()
+        max_q_num = 0
+        for k in first_keys:
+            num = int(re.search(r'\d+', k).group())
+            if num > max_q_num: max_q_num = num
+            
+        is_model = max_q_num > 17
+        exam_mode = "Model" if is_model else "CIA"
+        
         wb = Workbook()
         ws = wb.active
-        ws.title = "Results"
+        ws.title = "Detailed Report"
+        
+        # Headers: Roll No | Question | Topic | Score | Max_Score | Feedback
+        headers = ["Roll No", "Question", "Topic", "Score", "Max_Score", "Feedback"]
         header_fill = PatternFill(start_color="3B82F6", end_color="3B82F6", fill_type="solid")
-        feedback_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")  # Light yellow
         header_font = Font(bold=True, color="FFFFFF")
-        feedback_header_font = Font(bold=True, color="92400E")  # Amber text
         
-        first_entry = evals_raw[0]
-        q_keys = sorted(first_entry["marks"].keys(), key=lambda x: int(x[1:]) if x[1:].isdigit() else 999)
-        
-        # Build headers: Roll No, Q1, Q1_Feedback, Q2, Q2_Feedback, ..., Total
-        headers = ["Roll No"]
-        for q in q_keys:
-            headers.append(q)
-            headers.append(f"{q}_Feedback")
-        headers.append("Total")
-        
-        # Write headers with styling
         for col, h in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=h)
-            if "_Feedback" in h:
-                cell.fill = feedback_fill
-                cell.font = feedback_header_font
-            else:
-                cell.fill = header_fill
-                cell.font = header_font
+            cell.fill = header_fill
+            cell.font = header_font
+            
+        row_idx = 2
         
-        # Write data rows
-        for idx, e in enumerate(evals_raw, 2):
-            ws.cell(row=idx, column=1, value=e.get("roll_no", "Unknown"))
+        for record in evals_raw:
+            roll_no = record.get("roll_no", "Unknown")
+            marks_map = record.get("marks", {})
+            feedback_map = record.get("feedback", {})
+            topics_map = record.get("topics", {})
             
-            col_idx = 2
-            student_feedback = e.get("feedback", {})
+            # Sort questions naturally (Q1, Q2... Q10)
+            sorted_qs = sorted(marks_map.keys(), key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 999)
             
-            for q in q_keys:
-                # Mark column
-                ws.cell(row=idx, column=col_idx, value=e["marks"].get(q, 0))
-                col_idx += 1
+            for q_key in sorted_qs:
+                q_num = int(re.search(r'\d+', q_key).group())
                 
-                # Feedback column
-                feedback_cell = ws.cell(row=idx, column=col_idx, value=student_feedback.get(q, ""))
-                feedback_cell.alignment = Alignment(wrap_text=True)
-                col_idx += 1
+                # Determine Max Score
+                max_score = 0
+                if 1 <= q_num <= 10:
+                    max_score = 1
+                elif 11 <= q_num <= 15:
+                    max_score = 5 if exam_mode == "Model" else 4
+                elif q_num >= 16:
+                    max_score = 8 if exam_mode == "Model" else 10
+                    
+                score = marks_map.get(q_key, 0)
+                topic = topics_map.get(q_key, "General")
+                fb = feedback_map.get(q_key, "")
+                
+                ws.cell(row=row_idx, column=1, value=roll_no)
+                ws.cell(row=row_idx, column=2, value=q_key)
+                ws.cell(row=row_idx, column=3, value=topic)
+                ws.cell(row=row_idx, column=4, value=score)
+                ws.cell(row=row_idx, column=5, value=max_score)
+                ws.cell(row=row_idx, column=6, value=fb)
+                
+                row_idx += 1
+                
+        # Auto-width
+        dims = {1: 15, 2: 10, 3: 25, 4: 8, 5: 10, 6: 40}
+        for col, width in dims.items():
+            ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = width
             
-            # Total column
-            ws.cell(row=idx, column=col_idx, value=e.get("total", 0))
-        
-        # Auto-adjust column widths
-        for col_idx, header in enumerate(headers, 1):
-            if "_Feedback" in header:
-                ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = 35
-            else:
-                ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = 12
-            
-        path = f"results_{exam_id}.xlsx"
+        path = f"results_{exam_id}_detailed.xlsx"
         wb.save(path)
         return FileResponse(path, filename=path)
 

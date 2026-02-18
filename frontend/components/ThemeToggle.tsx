@@ -3,12 +3,19 @@
 import { useTheme } from "./ThemeProvider";
 import "./ThemeToggle.css";
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+    className?: string;
+    showLabel?: boolean;
+}
+
+export function ThemeToggle({ className = "", showLabel = false }: ThemeToggleProps) {
     const { theme, setTheme, resolvedTheme } = useTheme();
 
     const cycleTheme = () => {
-        const nextTheme = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
-        setTheme(nextTheme);
+        // Cycle: light -> dark -> system -> light
+        if (theme === 'light') setTheme('dark');
+        else if (theme === 'dark') setTheme('system');
+        else setTheme('light');
     };
 
     const getIcon = () => {
@@ -20,17 +27,18 @@ export function ThemeToggle() {
 
     const getLabel = () => {
         if (theme === "system") return "System";
-        return theme === "dark" ? "Dark" : "Light";
+        return theme === "dark" ? "Dark Mode" : "Light Mode";
     };
 
     return (
         <button
-            className="theme-toggle"
+            className={`theme-toggle ${showLabel ? "w-auto px-4 justify-start gap-3" : ""} ${className}`}
             onClick={cycleTheme}
-            title={`Theme: ${getLabel()}`}
+            title={`Current theme: ${getLabel()}`}
             aria-label={`Current theme: ${getLabel()}. Click to change.`}
         >
-            <i className={getIcon()}></i>
+            <i className={`${getIcon()} text-lg`}></i>
+            {showLabel && <span className="text-sm font-medium">{getLabel()}</span>}
         </button>
     );
 }

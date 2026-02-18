@@ -36,7 +36,7 @@ async def get_pool() -> asyncpg.Pool:
 async def init_db():
     """Initialize the database by running schema.sql."""
     pool = await get_pool()
-    schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+    schema_path = os.path.join(os.path.dirname(__file__), "../db/schema.sql")
     with open(schema_path, "r") as f:
         schema_sql = f.read()
     async with pool.acquire() as conn:
@@ -202,8 +202,8 @@ async def insert_evaluation(data: dict) -> int:
         ts = datetime.utcnow()
     
     row = await pool.fetchrow(
-        """INSERT INTO evaluations (roll_no, exam_id, marks, feedback, total, timestamp, subject, batch, department, semester)
-           VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6, $7, $8, $9, $10) RETURNING id""",
+        """INSERT INTO evaluations (roll_no, exam_id, marks, feedback, total, timestamp, subject, batch, department, semester, topics, exam_type)
+           VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6, $7, $8, $9, $10, $11::jsonb, $12) RETURNING id""",
         data["roll_no"],
         data["exam_id"],
         json.dumps(data.get("marks", {})),
@@ -213,7 +213,9 @@ async def insert_evaluation(data: dict) -> int:
         data.get("subject"),
         data.get("batch"),
         data.get("department"),
-        data.get("semester")
+        data.get("semester"),
+        json.dumps(data.get("topics", {})),
+        data.get("exam_type")
     )
     return row["id"]
 
@@ -233,6 +235,8 @@ async def find_evaluation(exam_id: str, roll_no: str) -> dict | None:
         d["marks"] = json.loads(d["marks"])
     if isinstance(d.get("feedback"), str):
         d["feedback"] = json.loads(d["feedback"])
+    if isinstance(d.get("topics"), str):
+        d["topics"] = json.loads(d["topics"])
     return d
 
 
@@ -261,6 +265,8 @@ async def get_evaluation_results(exam_id: str) -> list[dict]:
             d["marks"] = json.loads(d["marks"])
         if isinstance(d.get("feedback"), str):
             d["feedback"] = json.loads(d["feedback"])
+        if isinstance(d.get("topics"), str):
+            d["topics"] = json.loads(d["topics"])
         results.append(d)
     return results
 
@@ -300,5 +306,181 @@ async def get_evaluation_history(limit: int = 50) -> list[dict]:
             d["avg_score"] = float(d["avg_score"])
         if d.get("latest_date"):
             d["latest_date"] = d["latest_date"].isoformat()
+        results.append(d)
+    return results
+
+
+# -------------------------------------------------------------------
+# Auth & Adaptive Learning Functions
+# -------------------------------------------------------------------
+
+async def create_user(email: str, password_hash: str, role: str = 'faculty', roll_no: str = None) -> int:
+    pool = await get_pool()
+    # Check if exists
+    existing = await find_user_by_email(email)
+    user_id = None
+    if existing:
+        user_id = existing['id']
+    else:
+        row = await pool.fetchrow(
+            "INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING id",
+            email, password_hash, role
+        )
+        user_id = row['id']
+    
+    # If roll_no is provided, link it in students table
+    if roll_no:
+        try:
+             await pool.execute("UPDATE students SET email = $1 WHERE roll_no = $2", email, roll_no)
+        except Exception as e:
+            # Log error but don't fail user creation
+            print(f"Failed to link roll_no {roll_no} to {email}: {e}")
+            
+    return user_id
+
+async def update_password(email: str, password_hash: str):
+    pool = await get_pool()
+    await pool.execute("UPDATE users SET password = $1 WHERE email = $2", password_hash, email)
+
+
+async def get_student_progress(student_id: int, subject: str) -> dict:
+    """Returns {topic: mastery, ...}"""
+    pool = await get_pool()
+    rows = await pool.fetch(
+        "SELECT topic, mastery FROM student_progress WHERE student_id = $1 AND subject = $2",
+        student_id, subject
+    )
+    return {r['topic']: r['mastery'] for r in rows}
+
+
+async def update_student_progress(student_id: int, subject: str, topic: str, new_mastery: float):
+    pool = await get_pool()
+    await pool.execute(
+        """
+        INSERT INTO student_progress (student_id, subject, topic, mastery, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (student_id, subject, topic)
+        DO UPDATE SET mastery = $4, updated_at = NOW()
+        """,
+        student_id, subject, topic, new_mastery
+    )
+
+
+
+async def get_student_evaluations(email: str) -> list[dict]:
+    pool = await get_pool()
+    # 1. Get Roll No from email
+    student = await pool.fetchrow("SELECT roll_no FROM students WHERE email = $1", email)
+    if not student: return []
+    
+    roll_no = student['roll_no']
+    
+    # 2. Get Evaluations
+    rows = await pool.fetch(
+        "SELECT * FROM evaluations WHERE roll_no = $1 ORDER BY timestamp DESC",
+        roll_no
+    )
+    
+    results = []
+    for r in rows:
+        d = dict(r)
+        d["_id"] = str(d.pop("id"))
+        if d.get("timestamp"):
+            d["timestamp"] = d["timestamp"].isoformat()
+        # Parse JSONB fields
+        if isinstance(d.get("marks"), str): d["marks"] = json.loads(d["marks"])
+        if isinstance(d.get("feedback"), str): d["feedback"] = json.loads(d["feedback"])
+        if isinstance(d.get("topics"), str): d["topics"] = json.loads(d["topics"])
+        
+        results.append(d)
+    return results
+
+async def get_evaluation_topics(exam_id: str) -> list[str]:
+    pool = await get_pool()
+    # Fetch topics from evaluations table (stored as jsonb or array)
+    # The evaluation stores "topics" which is usually a list of strings
+    # But wait, evaluations stores topics for that specific student/exam?
+    # Yes, insert_evaluation stores "topics"
+    
+    # Let's just pick one evaluation for this exam_id to get topics?
+    # Or should we store topics in question_papers?
+    # Actually, evaluations has "topics" column which stores the topics covered in that exam.
+    
+    row = await pool.fetchrow("SELECT topics FROM evaluations WHERE exam_id = $1 LIMIT 1", exam_id)
+    if not row: return []
+    
+    topics_json = row['topics']
+
+    # Handle string (double-encoded JSON)
+    if isinstance(topics_json, str):
+        try:
+            topics_json = json.loads(topics_json)
+        except:
+            return []
+
+    # Handle List
+    if isinstance(topics_json, list):
+        return [str(t) for t in topics_json if t]
+
+    # Handle Dict (Values are topics)
+    if isinstance(topics_json, dict):
+        # Extract unique values
+        raw_values = list(topics_json.values())
+        unique_topics = list(set([str(v) for v in raw_values if v and v != "Unknown"]))
+        return unique_topics if unique_topics else ["General"]
+
+    return []
+
+async def create_learning_session(session_id: str, student_id: int, subject: str, exam_id: str = None):
+    pool = await get_pool()
+    await pool.execute(
+        "INSERT INTO learning_sessions (session_id, student_id, subject, start_time, exam_id) VALUES ($1, $2, $3, NOW(), $4)",
+        session_id, student_id, subject, exam_id
+    )
+
+async def log_learning_step(log_data: dict):
+    pool = await get_pool()
+    await pool.execute(
+        """
+        INSERT INTO learning_logs 
+        (session_id, student_id, topic, difficulty, score, feedback, mastery_before, mastery_after, action_taken, reward, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+        """,
+        log_data["session_id"],
+        log_data["student_id"],
+        log_data["topic"],
+        log_data["difficulty"],
+        log_data["score"],
+        log_data.get("feedback", ""), # Add feedback
+        log_data["mastery_before"],
+        log_data["mastery_after"],
+        log_data["action_taken"],
+        log_data["reward"]
+    )
+
+
+
+async def get_session_by_id(session_id: str) -> dict:
+    pool = await get_pool()
+    row = await pool.fetchrow("SELECT * FROM learning_sessions WHERE session_id = $1", session_id)
+    return dict(row) if row else None
+
+
+async def get_student_learning_logs(student_id: int, limit: int = 10) -> list[dict]:
+    pool = await get_pool()
+    rows = await pool.fetch(
+        """
+        SELECT * FROM learning_logs 
+        WHERE student_id = $1 
+        ORDER BY timestamp DESC 
+        LIMIT $2
+        """,
+        student_id, limit
+    )
+    results = []
+    for r in rows:
+        d = dict(r)
+        if d.get("timestamp"):
+            d["timestamp"] = d["timestamp"].isoformat()
         results.append(d)
     return results

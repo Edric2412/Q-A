@@ -77,17 +77,18 @@ async def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str
         {rubric_text}
         
         **OUTPUT FORMAT**:
-        Return a valid JSON object where keys are the Question IDs (e.g., "11", "12", "16") and values are objects with "score" and "feedback".
+        Return a valid JSON object where keys are the Question IDs (e.g., "11", "12", "16") and values are objects with "score", "feedback", and "topic".
         
         Example JSON:
         {{
-            "11": {{"score": 3.5, "feedback": "Good definition, but missed the second point about..."}},
-            "12": {{"score": 5.0, "feedback": "Perfect answer."}}
+            "11": {{"score": 3.5, "feedback": "Good definition...", "topic": "Neural Networks"}},
+            "12": {{"score": 5.0, "feedback": "Perfect answer.", "topic": "Optimization"}}
         }}
         
         **IMPORTANT**: 
         - Return ONLY the JSON. No markdown formatting.
         - Ensure numeric scores are floats (e.g. 4.0, 2.5).
+        - "topic" should be the core academic topic of the question (1-3 words).
         """
         
         # 4. Generate Content

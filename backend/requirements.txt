@@ -30,3 +30,6 @@ pytest
 pytest-asyncio
 httpx
 pdf2image
+stable-baselines3
+gymnasium
+shimmy

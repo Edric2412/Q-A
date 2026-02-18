@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
     id          SERIAL PRIMARY KEY,
     email       VARCHAR(255) UNIQUE NOT NULL,
     password    VARCHAR(255) NOT NULL,
-    created_at  TIMESTAMP DEFAULT NOW()
+    created_at  TIMESTAMP DEFAULT NOW(),
+    role        VARCHAR(50) DEFAULT 'faculty'
 );
 
 -- 2. Departments (dropdown values)
@@ -59,7 +60,46 @@ CREATE TABLE IF NOT EXISTS evaluations (
     subject     VARCHAR(255),
     batch       VARCHAR(50),
     department  VARCHAR(255) REFERENCES departments(value) ON UPDATE CASCADE,
-    semester    VARCHAR(50)
+    semester    VARCHAR(50),
+    topics      JSONB DEFAULT '{}',
+    exam_type   VARCHAR(50) -- CIA or Model
+);
+
+-- 7. Student Progress (Knowledge Tracing - BKT)
+CREATE TABLE IF NOT EXISTS student_progress (
+    id          SERIAL PRIMARY KEY,
+    student_id  INT REFERENCES users(id) ON DELETE CASCADE,
+    subject     VARCHAR(255) NOT NULL,
+    topic       VARCHAR(255) NOT NULL,
+    mastery     FLOAT DEFAULT 0.1, -- Probability of mastery (0.0 to 1.0)
+    updated_at  TIMESTAMP DEFAULT NOW(),
+    UNIQUE(student_id, subject, topic)
+);
+
+-- 8. Learning Sessions
+CREATE TABLE IF NOT EXISTS learning_sessions (
+    id SERIAL PRIMARY KEY,
+    session_id VARCHAR(255) UNIQUE NOT NULL, -- Added UNIQUE
+    student_id INTEGER NOT NULL REFERENCES users(id),
+    subject VARCHAR(255) NOT NULL,
+    start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    exam_id VARCHAR(255) -- Optional, linked to an exam
+);
+
+-- 9. Learning Logs (RL Trajectory Data)
+CREATE TABLE IF NOT EXISTS learning_logs (
+    id          SERIAL PRIMARY KEY,
+    session_id  VARCHAR(255) REFERENCES learning_sessions(session_id) ON DELETE CASCADE,
+    student_id  INT REFERENCES users(id) ON DELETE CASCADE,
+    timestamp   TIMESTAMP DEFAULT NOW(),
+    topic       VARCHAR(255) NOT NULL,
+    difficulty  VARCHAR(20) NOT NULL, -- easy, medium, hard
+    score       FLOAT NOT NULL, -- 0.0 to 1.0
+    feedback    TEXT, -- Added feedback column
+    mastery_before FLOAT,
+    mastery_after  FLOAT,
+    action_taken   INT, -- RL Action ID
+    reward         FLOAT
 );
 
 -- Indexes for performance
@@ -68,3 +108,5 @@ CREATE INDEX IF NOT EXISTS idx_details_department ON details(department);
 CREATE INDEX IF NOT EXISTS idx_students_dept_batch ON students(department, batch);
 CREATE INDEX IF NOT EXISTS idx_qp_created_at ON question_papers(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_evaluations_roll_no ON evaluations(roll_no);
+CREATE INDEX IF NOT EXISTS idx_progress_student ON student_progress(student_id);
+CREATE INDEX IF NOT EXISTS idx_logs_session ON learning_logs(session_id);

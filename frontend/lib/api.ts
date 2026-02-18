@@ -78,7 +78,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 // --- Auth API ---
-export async function login(email: string, password: string): Promise<Response> {
+// --- Auth API ---
+export async function login(email: string, password: string): Promise<{ message: string; role: string; redirect: string; user_id: string; email: string }> {
     const formData = new URLSearchParams();
     formData.append("email", email);
     formData.append("password", password);
@@ -87,14 +88,18 @@ export async function login(email: string, password: string): Promise<Response> 
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formData,
-        redirect: "manual", // Handle redirect manually for SPA
     });
-    return response;
+    return handleResponse(response);
 }
 
 export async function getSavedPapers(): Promise<SavedPaper[]> {
     const response = await fetch(`${API_BASE}/saved-papers`);
     return handleResponse<SavedPaper[]>(response);
+}
+
+export async function getSavedPaper(paper_id: string): Promise<SavedPaper> {
+    const response = await fetch(`${API_BASE}/saved-paper/${paper_id}`);
+    return handleResponse<SavedPaper>(response);
 }
 
 // ... (existing code)
@@ -319,3 +324,92 @@ export async function updateMark(examId: string, rollNo: string, questionNum: st
 export function getExcelExportUrl(examId: string): string {
     return `${API_BASE}/evaluator/export-excel?exam_id=${encodeURIComponent(examId)}`;
 }
+
+// --- Learning API ---
+export interface StartSessionResponse {
+    session_id: string;
+    question: any; // Using any for Question type flexibility
+    topic_index: number;
+    topic_name: string;
+    difficulty: string;
+    mastery: number[];
+    available_topics: string[];
+}
+
+export async function startSession(student_id: number, subject: string, exam_id: string): Promise<StartSessionResponse> {
+    const response = await fetch(`${API_BASE}/learning/start-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_id, subject, exam_id }),
+    });
+    return handleResponse(response);
+}
+
+export interface SubmitAnswerPayload {
+    session_id: string;
+    student_id: number;
+    question: string;
+    answer: string;
+    topic_index: number;
+    topic_name?: string;
+    difficulty: string;
+}
+
+export interface SubmitAnswerResponse {
+    score: number;
+    feedback: string;
+    mastery_update: number;
+    current_mastery_vector: number[];
+    next_question: any;
+    next_topic_index: number;
+    next_topic_name: string;
+    next_difficulty: string;
+    available_topics?: string[];
+}
+
+export async function submitAnswer(payload: SubmitAnswerPayload): Promise<SubmitAnswerResponse> {
+    const response = await fetch(`${API_BASE}/learning/submit-answer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    return handleResponse(response);
+}
+
+export interface Evaluation {
+    _id: string;
+    exam_id: string;
+    subject: string;
+    total: number;
+    timestamp: string;
+    marks: Record<string, number>;
+    feedback: Record<string, string>;
+    topics: string[];
+    exam_type?: string;
+}
+
+export async function getMyEvaluations(student_id: number, email: string): Promise<Evaluation[]> {
+    const response = await fetch(`${API_BASE}/learning/my-evaluations/${student_id}?email=${encodeURIComponent(email)}`);
+    return handleResponse(response);
+}
+
+export async function getEvaluationDetails(exam_id: string, email: string): Promise<Evaluation> {
+    const response = await fetch(`${API_BASE}/learning/evaluation-details/${exam_id}?email=${encodeURIComponent(email)}`);
+    return handleResponse(response);
+}
+
+export interface LearningLog {
+    session_id: string;
+    topic: string;
+    difficulty: string;
+    score: number;
+    mastery_before: number;
+    mastery_after: number;
+    timestamp: string;
+}
+
+export async function getLearningLogs(student_id: number): Promise<LearningLog[]> {
+    const response = await fetch(`${API_BASE}/learning/learning-logs/${student_id}`);
+    return handleResponse(response);
+}
+

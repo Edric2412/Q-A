@@ -15,8 +15,22 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        // RBAC Check
+        const role = localStorage.getItem("user_role");
+        const userId = localStorage.getItem("user_id");
+
+        if (!userId) {
+            router.push("/");
+            return;
+        }
+
+        if (role === "student") {
+            router.push("/student-dashboard");
+            return;
+        }
+
         fetchData();
-    }, []);
+    }, [router]);
 
     const fetchData = async () => {
         try {

@@ -39,24 +39,22 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await login(email, password);
+      const data = await login(email, password);
 
-      // With redirect: "manual", a successful 303 redirect becomes an opaqueredirect
-      // response.type will be "opaqueredirect" on success
-      // On failure, backend returns 200 with HTML error page
-      if (response.type === "opaqueredirect" || response.status === 303) {
-        showToast("Login successful! Redirecting...", "success");
-        router.push("/dashboard");
-      } else if (response.ok) {
-        // If we get a 200 OK, it means the backend returned the error HTML template
-        // (unsuccessful login returns 200 with error message in HTML)
-        showToast("Invalid email or password", "error");
-      } else {
-        showToast("Login failed. Please try again.", "error");
-      }
-    } catch (error) {
+      // Store user info (No JWT)
+      localStorage.setItem("user_role", data.role);
+      localStorage.setItem("user_id", data.user_id);
+      localStorage.setItem("user_email", data.email);
+
+      showToast("Login successful! Redirecting...", "success");
+
+      // Decode token to get user ID if needed, or backend returns it? 
+      // Backend returns Redirect URL, usually "/dashboard" or "/student-dashboard"
+      router.push(data.redirect);
+
+    } catch (error: any) {
       console.error("Login error:", error);
-      showToast("Network error. Please try again.", "error");
+      showToast(error.message || "Invalid email or password", "error");
     } finally {
       setIsLoading(false);
     }
