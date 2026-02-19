@@ -1,6 +1,6 @@
-# 🎓 All-in-One RAG Assessment Engine
+# 🎓 All-in-One RAG Assessment & Adaptive Learning Engine
 
-> **Dynamic Creation, Automated Evaluation, and University-Centric Output**
+> **Dynamic Creation, Automated Evaluation, and Personalized Learning Optimization**
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
@@ -13,13 +13,13 @@
 [![Knowledge Tracing](https://img.shields.io/badge/KT-BKT-purple?style=for-the-badge&logo=analytics&logoColor=white)](https://en.wikipedia.org/wiki/Bayesian_Knowledge_Tracing)
 [![Neo4j](https://img.shields.io/badge/Neo4j-008CC1?style=for-the-badge&logo=neo4j&logoColor=white)](https://neo4j.com/)
 
-**AI-powered question paper generation and automated grading for educational institutions** – A complete RAG-based assessment workflow from syllabus to graded results.
+**AI-powered question paper generation and automated grading for educational institutions along with an adaptive learning platform for students** – A complete RAG-based assessment workflow from syllabus to graded results to student subject mastery
 
 ---
 
 ## 🚀 Overview
 
-This project provides a **dual-pipeline architecture** for modern educational assessment:
+This project provides a **tri-pipeline architecture** for modern educational assessment:
 
 ### 1️⃣ **Question Generator Pipeline**
 - 📄 **PDF Syllabus Parsing** with OCR fallback (Gemini Vision)
@@ -105,7 +105,7 @@ flowchart TB
 - **Backend:** FastAPI (Python 3.10+), Gemini 2.5 Flash
 - **Frontend:** Next.js 16, React 19, TypeScript, Framer Motion
 - **Database:** PostgreSQL 16, Neo4j Graph Database (Dockerized)
-- **AI/ML:** Reinforcement Learning (PPO – Stable-Baselines3, Gymnasium), Bayesian Knowledge Tracing, Google Generative AI SDK, Sentence-Transformers (MiniLM)
+- **AI/ML:** Reinforcement Learning (PPO – Stable-Baselines3, Gymnasium), Bayesian Knowledge Tracing, Google Generative AI SDK, Sentence-Transformers (MiniLM), Langchain (prompt template handling)
 - **Charts:** Recharts (score distributions, per-question analysis, heatmaps)
 - **Document Processing:** PDFPlumber, python-docx, latex2mathml, pytesseract
 
@@ -284,6 +284,7 @@ The backend API is available at `http://localhost:8000`, with the evaluator moun
 6. **Mark Allocation** → Per-question scoring with feedback
 7. **Analytics** → Score distributions, heatmaps, rankings
 8. **Export Generation** → Excel with per-question feedback columns
+   
 ### 🧠 Adaptive Learning Flow
 
 1. **Session Start** → System fetches BKT mastery vector and Neo4j knowledge graph.
