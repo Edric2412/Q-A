@@ -45,7 +45,7 @@ async def wait_for_file_active(file):
     logger.info(f"File {file.name} is ACTIVE.")
     return file
 
-async def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str = "gemini-2.5-flash", authorized_topics: list = None) -> dict:
+async def grade_pdf_with_vision(pdf_path: str, rubric_text: str, model_name: str = "gemini-3-flash-preview", authorized_topics: list = None) -> dict:
     """
     Uploads PDF, waits for processing, and grades it using Gemini Vision in one go.
     Returns a dictionary of results { "1": {"score": X, "feedback": Y, "topic": Z}, ... }

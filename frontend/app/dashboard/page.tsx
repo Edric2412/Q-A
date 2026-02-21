@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTheme } from "@/components/ThemeProvider";
+import { Component as EtheralShadow } from "@/components/ui/etheral-shadow";
 import { getSavedPapers, getEvaluationHistory, deletePaper, deleteEvaluation } from "@/lib/api";
 import type { SavedPaper, EvaluationHistoryItem } from "@/lib/api";
 import "./dashboard.css";
 
 export default function DashboardPage() {
     const router = useRouter();
+    const { resolvedTheme } = useTheme();
     const [recentPapers, setRecentPapers] = useState<SavedPaper[]>([]);
     const [recentEvaluations, setRecentEvaluations] = useState<EvaluationHistoryItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -81,54 +84,60 @@ export default function DashboardPage() {
         }
     };
 
+    const handleLogout = () => {
+        localStorage.removeItem("user_role");
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("user_email");
+        router.push("/");
+    };
+
+    // Determine shadow intensity based on theme
+    const shadowColor = resolvedTheme === 'dark' ? "rgba(99, 102, 241, 0.4)" : "rgba(99, 102, 241, 0.15)";
+    const noiseOpacity = resolvedTheme === 'dark' ? 0.8 : 0.3;
+
     return (
         <div className="dashboard-container">
+            <EtheralShadow
+                color={shadowColor}
+                animation={{ scale: 100, speed: 60 }}
+                noise={{ opacity: noiseOpacity, scale: 1.2 }}
+                sizing="fill"
+            />
 
-            <header className="dashboard-header">
-                <div className="header-content">
-                    <div className="dashboard-logo">
-                        <div className="logo-icon">K</div>
-                        <div>
-                            <h1>KCLAS</h1>
-                            <p>Question Paper System</p>
-                        </div>
-                    </div>
-                    <ThemeToggle />
-                </div>
-            </header>
+            <div className="top-right-controls">
+                <ThemeToggle />
+                <button className="btn-logout" onClick={handleLogout} title="Logout">
+                    <i className="ri-logout-box-r-line"></i>
+                </button>
+            </div>
 
-            <main className="dashboard-main">
+            <main className="dashboard-main dashboard-content-grid">
                 {/* Hero Section */}
                 <div className="hero-section">
-                    <h2>What would you like to do today?</h2>
-                    <p>Generate new papers or evaluate existing submissions</p>
+                    <h2>Faculty Dashboard</h2>
+                    <p>Manage evaluations and generate question papers efficiently</p>
                 </div>
 
                 {/* Action Cards */}
                 <div className="action-cards">
                     <a href="/generator" className="module-card">
                         <div className="module-icon">
-                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-primary)', opacity: 0.85 }}>
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                <polyline points="14 2 14 8 20 8" />
-                                <line x1="16" y1="13" x2="8" y2="13" />
-                                <line x1="16" y1="17" x2="8" y2="17" />
-                                <polyline points="10 9 9 9 8 9" />
-                            </svg>
+                            <i className="ri-file-add-line" style={{ color: 'var(--text-primary)', opacity: 0.85 }}></i>
                         </div>
-                        <h3>Generate New Paper</h3>
-                        <p>Create custom papers with AI</p>
+                        <div className="module-card-content">
+                            <h3>Generate New Paper</h3>
+                            <p>Create custom papers with AI</p>
+                        </div>
                     </a>
 
                     <a href="/evaluate" className="module-card">
                         <div className="module-icon">
-                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-primary)', opacity: 0.85 }}>
-                                <path d="M9 11l3 3L22 4" />
-                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                            </svg>
+                            <i className="ri-check-double-line" style={{ color: 'var(--text-primary)', opacity: 0.85 }}></i>
                         </div>
-                        <h3>Evaluate Answers</h3>
-                        <p>Auto-grade student submissions</p>
+                        <div className="module-card-content">
+                            <h3>Evaluate Answers</h3>
+                            <p>Auto-grade student submissions</p>
+                        </div>
                     </a>
                 </div>
 

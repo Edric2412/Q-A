@@ -182,7 +182,7 @@ async def submit_answer(req: SubmitAnswerRequest):
         """
         
         # Use direct Gemini SDK (Consistent with platform upgrade)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-3-flash-preview')
         response = await model.generate_content_async(prompt)
         
         # Clean and Parse

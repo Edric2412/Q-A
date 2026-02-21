@@ -132,9 +132,8 @@ export default function LearningPage() {
 
                     <div className="nav-divider"></div>
 
-                    <div className="px-2">
-                        <span className="text-sm font-medium flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <div className="px-3">
+                        <span className="text-sm font-medium tracking-wide">
                             Adaptive Learning
                         </span>
                     </div>

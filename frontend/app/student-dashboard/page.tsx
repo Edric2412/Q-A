@@ -112,33 +112,34 @@ const SubjectMastery = ({ learningLogs }: { learningLogs: LearningLog[] }) => {
     const masteryData = Object.entries(topicMastery).map(([topic, data]) => ({
         topic,
         mastery: (data.total / data.count) * 100
-    })).sort((a, b) => b.mastery - a.mastery).slice(0, 5);
+    })).sort((a, b) => b.mastery - a.mastery).slice(0, 6);
 
     return (
-        <div className="glass-panel">
-            <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[var(--text-primary)]">
-                <Trophy size={16} className="text-[var(--accent-warning)]" /> Subject Mastery
-            </h3>
+        <div className="mac-card mb-6">
+            <div className="flex items-center justify-between mb-5">
+                <h3 className="font-bold text-xs flex items-center gap-2 text-[var(--text-primary)]">
+                    <Trophy size={14} className="text-[var(--accent-warning)]" /> Subject Mastery
+                </h3>
+            </div>
+
             {masteryData.length === 0 ? (
-                <div className="text-center py-8 text-[var(--text-tertiary)] text-xs">
-                    Start learning to see mastery progress.
+                <div className="text-center py-6 text-[var(--text-tertiary)] text-xs">
+                    No progress data.
                 </div>
             ) : (
                 <div className="space-y-4">
                     {masteryData.map((item, i) => (
-                        <div key={i} className="space-y-1">
-                            <div className="flex justify-between text-xs font-semibold">
-                                <span>{item.topic}</span>
-                                <span className="text-[var(--accent-primary)]">{Math.round(item.mastery)}%</span>
-                            </div>
-                            <div className="h-2 w-full bg-[var(--bg-primary)] rounded-full overflow-hidden">
+                        <div key={i} className="mastery-item">
+                            <span className="text-[11px] font-medium text-[var(--text-secondary)]">{item.topic}</span>
+                            <div className="mastery-progress-bar">
                                 <motion.div
                                     initial={{ width: 0 }}
                                     animate={{ width: `${item.mastery}%` }}
-                                    transition={{ duration: 1, delay: 0.5 + (i * 0.1) }}
-                                    className="h-full bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]"
+                                    transition={{ duration: 1.2, delay: 0.1 * i, ease: [0.16, 1, 0.3, 1] }}
+                                    className="progress-fill bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]"
                                 />
                             </div>
+                            <span className="text-[10px] font-bold text-[var(--accent-primary)] text-right">{Math.round(item.mastery)}%</span>
                         </div>
                     ))}
                 </div>
@@ -148,27 +149,43 @@ const SubjectMastery = ({ learningLogs }: { learningLogs: LearningLog[] }) => {
 };
 
 const LearningLogsPanel = ({ learningLogs }: { learningLogs: LearningLog[] }) => (
-    <div className="glass-panel mt-6">
-        <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[var(--text-primary)]">
-            <BookOpen size={16} className="text-[var(--accent-secondary)]" /> Recent Learning
-        </h3>
-        <div className="space-y-3">
+    <div className="mac-card">
+        <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-sm flex items-center gap-2 text-[var(--text-primary)]">
+                <BookOpen size={16} className="text-[var(--accent-secondary)]" /> Recent Learning
+            </h3>
+            <div className="p-1.5 bg-[var(--bg-primary)] rounded-lg">
+                <Clock size={12} className="text-[var(--text-tertiary)]" />
+            </div>
+        </div>
+
+        <div className="space-y-2">
             {learningLogs.length === 0 ? (
-                <div className="text-center py-4 text-[var(--text-tertiary)] text-xs">
+                <div className="text-center py-6 text-[var(--text-tertiary)] text-xs">
                     No learning sessions yet.
                 </div>
             ) : (
                 learningLogs.slice(0, 5).map((log, i) => (
-                    <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--bg-primary)] transition-colors">
-                        <div className={`w-2 h-2 rounded-full ${log.score > 0.6 ? 'bg-[var(--accent-success)]' : 'bg-[var(--accent-warning)]'}`} />
+                    <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 * i }}
+                        className="mac-list-item"
+                    >
+                        <div className={`w-1.5 h-1.5 rounded-full ${log.score > 0.6 ? 'bg-[var(--accent-success)]' : 'bg-[var(--accent-warning)]'} shadow-[0_0_8px_rgba(16,185,129,0.4)]`} />
                         <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold truncate">{log.topic}</div>
-                            <div className="text-[10px] text-[var(--text-tertiary)]">{new Date(log.timestamp).toLocaleDateString()} • {log.difficulty}</div>
+                            <div className="text-xs font-bold text-[var(--text-primary)] truncate">{log.topic}</div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[9px] text-[var(--text-tertiary)] font-medium">{new Date(log.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                <span className="w-0.5 h-0.5 rounded-full bg-[var(--text-tertiary)]" />
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-primary)] text-[var(--text-secondary)] font-bold">{log.difficulty}</span>
+                            </div>
                         </div>
-                        <div className="text-xs font-bold text-[var(--text-secondary)]">
+                        <div className="score-pill">
                             {Math.round(log.score * 100)}%
                         </div>
-                    </div>
+                    </motion.div>
                 ))
             )}
         </div>

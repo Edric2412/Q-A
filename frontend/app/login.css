@@ -19,6 +19,389 @@
 }
 
 /* ============================================
+   SPLIT SCREEN LAYOUT
+   ============================================ */
+
+.login-layout {
+  width: 100%;
+  max-width: 1400px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+  z-index: 10;
+  position: relative;
+}
+
+/* ============================================
+   BRANDING SECTION (LEFT)
+   ============================================ */
+
+.brand-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px;
+  color: var(--text-primary);
+  animation: slideRight 0.8s var(--transition-spring) forwards;
+}
+
+@keyframes slideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.logo-image-large {
+  height: 80px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 16px rgba(59, 130, 246, 0.3));
+  transition: transform var(--transition-spring), filter var(--transition-fast);
+}
+
+.logo-image-large:hover {
+  transform: scale(1.05) rotate(-3deg);
+  filter: drop-shadow(0 8px 32px rgba(59, 130, 246, 0.5));
+}
+
+.logo-text-large h1 {
+  font-size: 36px;
+  font-weight: 800;
+  background: var(--gradient-blue-purple);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.logo-text-large span {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.brand-headline {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 24px;
+  letter-spacing: -0.02em;
+}
+
+.brand-description {
+  font-size: 18px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 40px;
+  max-width: 480px;
+}
+
+/* ============================================
+   DASHBOARD 3D MOCKUP PREVIEW
+   ============================================ */
+
+.dashboard-preview-container {
+  width: 100%;
+  max-width: 500px;
+  perspective: 1000px;
+  margin-top: 20px;
+}
+
+.mockup-window {
+  width: 100%;
+  aspect-ratio: 4/3;
+  border-radius: 16px;
+  overflow: hidden;
+  transform: rotateY(15deg) rotateX(10deg) rotateZ(-2deg) scale(0.95);
+  transform-style: preserve-3d;
+  animation: floatMockup 6s ease-in-out infinite;
+  box-shadow:
+    -20px 30px 60px -15px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.2) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .mockup-window {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow:
+    -30px 40px 80px -20px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+@keyframes floatMockup {
+
+  0%,
+  100% {
+    transform: rotateY(15deg) rotateX(10deg) rotateZ(-2deg) translateY(0) scale(0.95);
+  }
+
+  50% {
+    transform: rotateY(12deg) rotateX(12deg) rotateZ(-1deg) translateY(-15px) scale(0.95);
+  }
+}
+
+.mockup-header {
+  height: 24px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mockup-header .mac-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.mockup-body {
+  padding: 16px;
+  height: calc(100% - 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mockup-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark .mockup-nav {
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+.mockup-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.m-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--gradient-blue-purple);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.m-text-line {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.dark .m-text-line {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.m-title {
+  width: 40px;
+  margin-bottom: 4px;
+}
+
+.m-sub {
+  width: 60px;
+  height: 4px;
+}
+
+.m-theme-toggle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark .m-theme-toggle {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mockup-content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.m-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.m-hero-title {
+  width: 120px;
+  height: 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.dark .m-hero-title {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.m-hero-sub {
+  width: 180px;
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.dark .m-hero-sub {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.m-action-cards {
+  display: flex;
+  gap: 12px;
+}
+
+.m-action-card {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.dark .m-action-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.m-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.m-blue {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.m-teal {
+  background: rgba(20, 184, 166, 0.15);
+}
+
+.m-card-title {
+  width: 60px;
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.m-card-sub {
+  width: 80px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark .m-card-title {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark .m-card-sub {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.m-table-section {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dark .m-table-section {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.m-table-header {
+  width: 60%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.1);
+  margin-bottom: 4px;
+}
+
+.dark .m-table-header {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.m-table-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.dark .m-table-row {
+  border-bottom-color: rgba(255, 255, 255, 0.03);
+}
+
+.m-cell {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.dark .m-cell {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.m-cell-1 {
+  width: 30%;
+}
+
+.m-cell-2 {
+  width: 20%;
+}
+
+.m-cell-3 {
+  width: 40%;
+}
+
+/* ============================================
    FLOATING ORBS BACKGROUND
    ============================================ */
 
@@ -124,33 +507,114 @@
 }
 
 /* ============================================
-   AUTH CONTAINER
+   AUTH SECTION (RIGHT)
    ============================================ */
+
+.auth-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
 
 .auth-container {
   width: 100%;
-  max-width: 440px;
+  max-width: 480px;
   margin: 0 auto;
   position: relative;
   z-index: 10;
 }
 
 /* ============================================
-   GLASSMORPHISM CARD
+   GLASSMORPHISM CARD (Mac Window)
    ============================================ */
 
 .glass-morphism {
   background: var(--bg-glass);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-glass);
 }
 
 .auth-card {
-  padding: 48px 40px;
   border-radius: var(--radius-2xl);
   animation: cardEntry 0.6s var(--transition-spring) forwards;
+  position: relative;
+  overflow: hidden;
+  /* Liquid Glass Base */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 100%);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-top: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 30px 60px -12px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.02),
+    0 1px 0 rgba(255, 255, 255, 1) inset;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .auth-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.6);
+}
+
+.auth-card:hover {
+  box-shadow:
+    0 35px 70px -15px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.02),
+    0 1px 0 rgba(255, 255, 255, 1) inset;
+  transform: translateY(-2px);
+}
+
+.dark .auth-card:hover {
+  box-shadow: 0 45px 90px -20px rgba(0, 0, 0, 0.7);
+}
+
+/* Auth Card Inner Content */
+.mac-window-content {
+  padding: 32px 40px 48px;
+}
+
+/* MacOS Window Elements */
+.mac-window-header {
+  height: 44px;
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 8px;
+}
+
+.dark .mac-window-header {
+  background: rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.1);
+}
+
+.mac-dot.close {
+  background: #ff5f56;
+  border: 1px solid #e0443e;
+}
+
+.mac-dot.minimize {
+  background: #ffbd2e;
+  border: 1px solid #dea123;
+}
+
+.mac-dot.maximize {
+  background: #27c93f;
+  border: 1px solid #1aab29;
 }
 
 @keyframes cardEntry {
@@ -261,15 +725,38 @@
 }
 
 .glass-input {
-  background: var(--bg-input);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 100%);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid var(--border-color);
+  border-top: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.02),
+    0 1px 0 rgba(255, 255, 255, 0.5) inset;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .glass-input {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .glass-input:focus-within {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12), var(--shadow-glow);
+  box-shadow:
+    0 10px 30px -5px rgba(0, 0, 0, 0.08),
+    0 0 0 2px rgba(99, 102, 241, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  transform: translateY(-1px);
+}
+
+.dark .glass-input:focus-within {
+  box-shadow:
+    0 10px 30px -5px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(99, 102, 241, 0.3);
 }
 
 .input-icon {
@@ -426,17 +913,23 @@
   font-size: 16px;
   font-weight: 600;
   color: white;
-  background: var(--gradient-blue-purple);
-  border: none;
+  background: linear-gradient(to bottom, var(--accent-primary), #4338ca);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--radius-md);
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: all var(--transition-fast);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 10px 30px -5px rgba(79, 70, 229, 0.3),
+    0 1px 0 rgba(255, 255, 255, 0.2) inset;
 }
 
 .btn-primary::before {
@@ -455,12 +948,15 @@
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow:
+    0 15px 40px -5px rgba(79, 70, 229, 0.4),
+    0 1px 0 rgba(255, 255, 255, 0.3) inset;
 }
 
 .btn-primary:active:not(:disabled) {
   transform: translateY(0);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .btn-primary:disabled {
@@ -552,13 +1048,63 @@
   color: var(--text-primary);
 }
 
-/* ============================================
-   RESPONSIVE
-   ============================================ */
+@media (max-width: 1024px) {
+  .login-layout {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    padding: 40px 20px;
+  }
+
+  .brand-section {
+    padding: 0;
+    align-items: center;
+    text-align: center;
+  }
+
+  .brand-logo {
+    justify-content: center;
+  }
+
+  .brand-headline {
+    font-size: 36px;
+  }
+
+  .dashboard-preview-container {
+    max-width: 400px;
+    margin: 0 auto;
+    perspective: 800px;
+  }
+
+  .mockup-window {
+    transform: rotateY(10deg) rotateX(8deg) scale(0.9);
+    animation: floatMockupMobile 6s ease-in-out infinite;
+  }
+
+  @keyframes floatMockupMobile {
+
+    0%,
+    100% {
+      transform: rotateY(10deg) rotateX(8deg) translateY(0) scale(0.9);
+    }
+
+    50% {
+      transform: rotateY(8deg) rotateX(10deg) translateY(-10px) scale(0.9);
+    }
+  }
+}
 
 @media (max-width: 640px) {
-  .auth-card {
-    padding: 36px 24px;
+  .login-layout {
+    padding: 20px 10px;
+  }
+
+  .mac-window-content {
+    padding: 24px 24px 32px;
+  }
+
+  .mac-window-header {
+    height: 36px;
+    padding: 0 16px;
   }
 
   .auth-title {

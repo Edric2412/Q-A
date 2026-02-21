@@ -187,7 +187,7 @@ async def run_batch_query(prompt_template: PromptTemplate, q_type: str, num: int
         full_prompt = prompt_template.format(**input_vars)
 
         models_to_try = [
-            ("gemini-2.5-flash", "PRIMARY"),
+            ("gemini-3-flash-preview", "PRIMARY"),
             ("gemini-1.5-pro", "FALLBACK 1"),
             ("gemini-1.5-flash", "FALLBACK 2")
         ]

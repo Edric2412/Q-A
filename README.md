@@ -151,11 +151,13 @@ flowchart TB
 - **Manual Progression**: Students review feedback before advancing to the next challenge.
 
 ### 🎨 Modern UI/UX
-- **macOS Liquid Glass**: Premium translucent design with backdrop blur, specular highlights, and glass refraction borders.
-- **Dark/Light Mode**: Full theme support across all pages.
+- **macOS Liquid Glass**: Premium translucent design with deep backdrop blurs, specular highlights, and pure frosted glass pill navigation.
+- **Dynamic Backgrounds**: Features interactive `Animated Grid Pattern` on the login screen and a Framer Motion-powered `Etheral Shadows` ambient background on the faculty dashboard.
+- **High-Density Dashboards**: Professional, no-scroll layouts ensuring all critical metrics and actions are instantly accessible.
+- **Dark/Light Mode**: Full theme support with dynamically adjusting contrasts and opacity for backgrounds across all pages.
 - **SVG Icon System**: Professional inline SVG icons (no emoji).
-- **Responsive Layout**: Mobile-first design with breakpoints.
 - **Print Optimization**: Dedicated CSS for clean, ink-saving analytics prints.
+- **Responsive Layout**: Mobile-first design with strict breakpoints.
 
 ---
 

@@ -274,21 +274,21 @@ export default function GuidedLearning({ initialState, studentId }: GuidedLearni
                                         </div>
                                     </div>
 
-                                    <div className="mt-8 flex flex-col items-center gap-4">
+                                    <div className="mt-10 flex flex-col items-center gap-5">
                                         <button
                                             onClick={handleNext}
                                             className="reload-btn"
                                         >
                                             <RefreshCw size={18} />
-                                            <span>Generate New Question</span>
+                                            <span>Start Next Challenge</span>
                                         </button>
 
-                                        <div className="flex flex-col items-center gap-1 opacity-60">
-                                            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-indigo-400">
+                                        <div className="flex flex-col items-center gap-1.5 opacity-60">
+                                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-indigo-400">
                                                 <Clock size={12} />
-                                                <span>Adaptive Learning Active</span>
+                                                <span>Adaptive Engine Active</span>
                                             </div>
-                                            <p className="text-[10px] italic">Reloading will analyze your performance and generate the next challenge.</p>
+                                            <p className="text-[10px] font-medium italic">Analyzing performance to generate your next personalized question.</p>
                                         </div>
                                     </div>
                                 </div>

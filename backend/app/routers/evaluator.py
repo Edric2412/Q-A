@@ -55,10 +55,10 @@ if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
     # Target Gemini 3 Flash Preview as requested
     try:
-        gemini_model = genai.GenerativeModel('gemini-2.5-flash')
-        logger.info("SUCCESS: Gemini 2.5 Flash initialized.")
+        gemini_model = genai.GenerativeModel('gemini-3-flash-preview')
+        logger.info("SUCCESS: Gemini 3 Flash Preview initialized.")
     except:
-        logger.warning("Gemini 2.5 Flash unavailable. Falling back to 1.5 Flash.")
+        logger.warning("Gemini 3 Flash Preview unavailable. Falling back to 1.5 Flash.")
         gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 else:
     logger.error("ERROR: GEMINI_API_KEY not found.")
@@ -592,7 +592,7 @@ async def evaluate(
                     # Use Gemini 2.0 Flash or 1.5 Flash (User asked for 3, but let's stick to stable/available)
                     # We can try to respect user wish: 'gemini-2.0-flash-exp' or 'gemini-1.5-flash'
                     # The library usually handles model aliases.
-                    vision_results = await grade_pdf_with_vision(s_path, full_rubric_str, model_name="gemini-2.5-flash", authorized_topics=authorized_topics)
+                    vision_results = await grade_pdf_with_vision(s_path, full_rubric_str, model_name="gemini-3-flash-preview", authorized_topics=authorized_topics)
                     
                     # 3. Process Results
                     marks = {}

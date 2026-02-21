@@ -17,7 +17,7 @@
     --glass-border: rgba(255, 255, 255, 0.6);
     --glass-highlight: rgba(255, 255, 255, 0.8);
     --glass-shadow: rgba(0, 0, 0, 0.08);
-    --glass-blur: 28px;
+    --glass-blur: 32px;
 }
 
 [data-theme="dark"] {
@@ -76,52 +76,17 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: var(--page-gradient);
+    /* Professional Static Gradient overlaying the theme variables */
+    background: linear-gradient(135deg, var(--bg-primary) 0%, rgba(200, 210, 240, 0.4) 100%);
     color: var(--text-primary);
     position: relative;
     overflow-x: hidden;
 }
 
-/* Floating Orbs - Blue to Teal Gradient */
-.dashboard-container::before,
-.dashboard-container::after {
-    content: "";
-    position: fixed;
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 0;
+.dark .dashboard-container {
+    background: linear-gradient(135deg, var(--bg-primary) 0%, rgba(15, 23, 42, 0.8) 100%);
 }
 
-.dashboard-container::before {
-    width: 500px;
-    height: 500px;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 70%);
-    filter: blur(60px);
-    top: -150px;
-    right: -150px;
-    animation: floatOrb 25s ease-in-out infinite;
-}
-
-.dashboard-container::after {
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(20, 184, 166, 0.15) 0%, rgba(20, 184, 166, 0) 70%);
-    filter: blur(60px);
-    bottom: 5%;
-    left: -120px;
-    animation: floatOrb 25s ease-in-out infinite -10s;
-}
-
-/* Dark mode - MORE VIBRANT orbs */
-.dark .dashboard-container::before {
-    filter: blur(80px);
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.6) 0%, rgba(59, 130, 246, 0) 70%);
-}
-
-.dark .dashboard-container::after {
-    filter: blur(80px);
-    background: radial-gradient(circle, rgba(20, 184, 166, 0.5) 0%, rgba(20, 184, 166, 0) 70%);
-}
 
 /* ============================================
    PAPER PAGE CONTAINER - Gradient Background
@@ -217,84 +182,55 @@
 }
 
 /* ============================================
-   DASHBOARD HEADER
+   TOP RIGHT CONTROLS
    ============================================ */
 
-.dashboard-header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    padding: 20px 32px;
-
-    /* Liquid Glass */
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(200%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(200%);
-    border-bottom: 1px solid var(--glass-border);
-    box-shadow:
-        0 1px 0 var(--glass-highlight) inset,
-        0 4px 30px var(--glass-shadow);
-}
-
-/* Dark mode header */
-.dark .dashboard-header {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Ensure header elements are clickable */
-.dashboard-header * {
-    pointer-events: auto;
-}
-
-.dashboard-header button {
-    cursor: pointer;
-    position: relative;
-    z-index: 10;
-}
-
-.dashboard-header a {
-    cursor: pointer;
-    position: relative;
-    z-index: 10;
-}
-
-.header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    max-width: 100%;
-}
-
-.dashboard-logo {
+.top-right-controls {
+    position: absolute;
+    top: 24px;
+    right: 32px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
+    z-index: 50;
 }
 
-.logo-icon {
-    width: 40px;
-    height: 40px;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    border-radius: 8px;
+.btn-logout {
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
     font-size: 20px;
-    font-weight: 700;
-    color: white;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow:
+        0 4px 12px var(--glass-shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.dashboard-logo h1 {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
+.btn-logout:hover {
+    background: rgba(239, 68, 68, 0.1);
+    /* Subtle red tint on hover */
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+    transform: translateY(-2px);
+    box-shadow:
+        0 8px 16px rgba(239, 68, 68, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
-.dashboard-logo p {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin: 0;
+.dark .btn-logout:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow:
+        0 8px 16px rgba(239, 68, 68, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* ============================================
@@ -305,13 +241,21 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 60px 32px 32px;
+    padding: 24px 32px;
     position: relative;
     z-index: 10;
     width: 100%;
     max-width: 1400px;
     margin: 0 auto;
+    height: 100vh;
+}
+
+.dashboard-content-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    gap: 16px;
+    height: 100%;
 }
 
 /* ============================================
@@ -319,40 +263,55 @@
    ============================================ */
 
 .hero-section {
+    width: 100%;
+    margin-bottom: 8px;
+    /* small gap between header and cards */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
-    margin-bottom: 60px;
-    max-width: 800px;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.dark .hero-badge {
+    color: #818cf8;
 }
 
 .hero-section h2 {
-    font-size: 48px;
-    font-weight: 700;
-    color: var(--text-primary);
+    font-size: 56px;
+    font-weight: 800;
     margin-bottom: 12px;
-    line-height: 1.2;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    background: linear-gradient(135deg, var(--text-primary) 0%, rgba(99, 102, 241, 0.8) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .hero-section p {
-    font-size: 18px;
+    font-size: 16px;
     color: var(--text-secondary);
     margin: 0;
 }
 
 /* ============================================
-   ACTION CARDS CONTAINER
-   ============================================ */
-
-.action-cards {
-    display: flex;
-    gap: 24px;
-    margin-bottom: 80px;
-    width: 100%;
-    max-width: 800px;
-    justify-content: center;
-}
-
-/* ============================================
-   MODULE CARDS - GLASSMORPHIC GRADIENT DESIGN
+   ANIMATIONS - REVEAL
    ============================================ */
 
 @keyframes slideInReveal {
@@ -367,164 +326,130 @@
     }
 }
 
+/* ============================================
+   ACTION CARDS CONTAINER
+   ============================================ */
+
+.action-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+}
+
+/* ============================================
+   MODULE CARDS - HORIZONTAL COMPACT
+   ============================================ */
+
 .module-card {
-    flex: 1;
-    max-width: 320px;
-    min-height: 380px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: flex-start;
-    text-align: center;
-    padding: 0;
+    padding: 16px 20px;
     position: relative;
     overflow: hidden;
-    border-radius: 28px;
+    border-radius: 16px;
     cursor: pointer;
     text-decoration: none;
     color: inherit;
-    transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    height: 96px;
 
     /* Liquid Glass Background */
     background: var(--glass-bg);
 
     /* Deep frosted glass blur */
-    backdrop-filter: blur(var(--glass-blur)) saturate(200%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(200%);
+    backdrop-filter: blur(36px) saturate(190%);
+    -webkit-backdrop-filter: blur(36px) saturate(190%);
 
     /* Specular highlight border */
     border: 1px solid var(--glass-border);
+    border-top: 1px solid rgba(255, 255, 255, 0.9);
 
     /* Soft layered shadow for depth */
     box-shadow:
         0 1px 0 var(--glass-highlight) inset,
         0 -1px 0 rgba(0, 0, 0, 0.05) inset,
-        0 8px 24px var(--glass-shadow),
-        0 2px 8px var(--glass-shadow);
+        0 8px 16px var(--glass-shadow);
 
     /* Scroll reveal animation */
-    animation: slideInReveal 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: slideInReveal 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     z-index: 2;
 }
 
 .module-card:nth-child(2) {
-    animation-delay: 0.15s;
+    animation-delay: 0.1s;
 }
 
 /* Dark mode adjustments */
 .dark .module-card {
-    background: rgba(255, 255, 255, 0.04);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
     box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.08) inset,
-        0 8px 32px rgba(0, 0, 0, 0.5),
-        0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-/* Specular highlight sweep on hover */
-.module-card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -120%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(105deg,
-            transparent 20%,
-            rgba(255, 255, 255, 0.25) 45%,
-            rgba(255, 255, 255, 0.4) 50%,
-            rgba(255, 255, 255, 0.25) 55%,
-            transparent 80%);
-    transition: left 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-    z-index: 5;
-    pointer-events: none;
-}
-
-.module-card:hover::before {
-    left: 120%;
-}
-
-/* Refraction edge glow on hover */
-.module-card::after {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    border-radius: 28px;
-    padding: 1px;
-    background: linear-gradient(160deg,
-            rgba(255, 255, 255, 0.5) 0%,
-            rgba(255, 255, 255, 0.1) 30%,
-            transparent 60%,
-            rgba(255, 255, 255, 0.15) 100%);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    z-index: -1;
-    pointer-events: none;
-}
-
-.module-card:hover::after {
-    opacity: 1;
+        0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .module-card:hover {
-    transform: translateY(-10px) scale(1.02);
+    transform: translateY(-2px) scale(1.01);
     box-shadow:
         0 1px 0 var(--glass-highlight) inset,
-        0 20px 60px var(--glass-shadow),
-        0 8px 24px var(--glass-shadow);
+        0 12px 32px -8px rgba(99, 102, 241, 0.2);
+    border-color: rgba(255, 255, 255, 1);
 }
 
 .dark .module-card:hover {
     box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.1) inset,
-        0 20px 60px rgba(0, 0, 0, 0.6),
-        0 8px 24px rgba(99, 102, 241, 0.15);
+        0 12px 32px -8px rgba(99, 102, 241, 0.3);
+    border-color: rgba(255, 255, 255, 0.25);
 }
 
-/* Icon area - subtle separator */
+/* Icon area - Left Aligned */
 .module-icon {
-    width: 100%;
-    height: 220px;
-    margin: 0;
-    padding: 40px;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 80px;
-    position: relative;
-    z-index: 1;
-    background: linear-gradient(180deg,
-            var(--glass-highlight) 0%,
-            transparent 100%);
-    border-bottom: 1px solid var(--glass-border);
-    transition: all 0.4s ease;
+    font-size: 26px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    margin-right: 16px;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.dark .module-icon {
+    background: rgba(99, 102, 241, 0.15);
 }
 
 .module-card:hover .module-icon {
-    transform: scale(1.05);
+    transform: scale(1.05) rotate(-5deg);
+    background: rgba(99, 102, 241, 0.2);
 }
 
 /* Text content area */
+.module-card-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
 .module-card h3 {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
-    margin: 28px 24px 12px;
+    margin: 0 0 2px 0;
     color: var(--text-primary);
-    position: relative;
-    z-index: 2;
 }
 
 .module-card p {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-secondary);
-    line-height: 1.6;
-    margin: 0 24px 32px;
-    position: relative;
-    z-index: 2;
+    line-height: 1.3;
+    margin: 0;
 }
 
 /* ============================================
@@ -534,35 +459,38 @@
 .tables-section {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    gap: 16px;
     width: 100%;
 }
 
 .dashboard-section {
     position: relative;
     overflow: hidden;
-    border-radius: 28px;
-    padding: 32px;
+    border-radius: 20px;
+    padding: 24px;
     display: flex;
     flex-direction: column;
-    min-height: 380px;
-    max-height: 550px;
+    min-height: 0;
+    /* Important for child scrolling */
+    max-height: none;
+    height: 100%;
 
     /* Liquid Glass Background */
     background: var(--glass-bg);
 
     /* Deep frosted glass */
-    backdrop-filter: blur(var(--glass-blur)) saturate(200%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(200%);
+    backdrop-filter: blur(36px) saturate(190%);
+    -webkit-backdrop-filter: blur(36px) saturate(190%);
 
     /* Specular highlight border */
     border: 1px solid var(--glass-border);
+    border-top: 1px solid rgba(255, 255, 255, 0.9);
 
     /* Soft layered shadow */
     box-shadow:
         0 1px 0 var(--glass-highlight) inset,
         0 -1px 0 rgba(0, 0, 0, 0.05) inset,
-        0 8px 24px var(--glass-shadow),
+        0 20px 40px -10px var(--glass-shadow),
         0 2px 8px var(--glass-shadow);
 
     transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
@@ -578,11 +506,12 @@
 
 /* Dark mode adjustments */
 .dark .dashboard-section {
-    background: rgba(255, 255, 255, 0.04);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
     box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.06) inset,
-        0 8px 32px rgba(0, 0, 0, 0.5),
+        0 16px 32px rgba(0, 0, 0, 0.5),
         0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -707,8 +636,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
     border-bottom: 2px solid rgba(99, 102, 241, 0.2);
 }
 
@@ -772,7 +701,7 @@
 table {
     width: 100%;
     border-collapse: separate;
-    border-spacing: 0 6px;
+    border-spacing: 0 4px;
 }
 
 thead {
@@ -783,7 +712,7 @@ thead {
 
 th {
     text-align: left;
-    padding: 12px 16px;
+    padding: 10px 14px;
     font-size: 11px;
     font-weight: 700;
     color: var(--text-secondary);
@@ -831,8 +760,8 @@ tbody tr:hover td:first-child {
 }
 
 td {
-    padding: 14px 16px;
-    font-size: 14px;
+    padding: 10px 14px;
+    font-size: 13px;
     color: var(--text-primary);
     vertical-align: middle;
     white-space: nowrap;
@@ -918,7 +847,7 @@ td {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 60px 20px;
+    padding: 40px 20px;
     text-align: center;
     color: var(--text-muted);
     height: 100%;
