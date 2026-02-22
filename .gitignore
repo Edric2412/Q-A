@@ -20,6 +20,9 @@ out/
 # Temp / uploads
 backend/app/temp/
 backend/app/uploads/
+*.xlsx
+*.docx
+*.pdf
 
 # OS files
 .DS_Store

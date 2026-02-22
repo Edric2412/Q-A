@@ -27,17 +27,17 @@ P_TRANSIT = 0.1
 P_SLIP = 0.05
 P_GUESS = 0.15
 
-def update_bkt(mastery: float, correct: bool) -> float:
+def update_bkt(mastery: float, score: float) -> float:
     """
-    Update mastery probability using Bayesian Knowledge Tracing.
+    Update mastery probabilistically using an EMA-style bounded increment.
+    This replaces explosive pure-BKT updates so the progress bar moves smoothly.
+    new_mastery = current_mastery + learning_rate * (score - current_mastery)
     """
-    if correct:
-        p_learning = (mastery * (1 - P_SLIP)) / (mastery * (1 - P_SLIP) + (1 - mastery) * P_GUESS)
-    else:
-        p_learning = (mastery * P_SLIP) / (mastery * P_SLIP + (1 - mastery) * (1 - P_GUESS))
+    alpha = 0.25  # Learning rate (controls how fast mastery changes per attempt)
+    new_mastery = mastery + alpha * (score - mastery)
     
-    p_next = p_learning + (1 - p_learning) * P_TRANSIT
-    return min(max(p_next, 0.0), 1.0)
+    # Ensure mastery stays solidly bounded within UI presentation limits
+    return min(max(new_mastery, 0.05), 0.95)
 
 # --- MODELS ---
 class StartSessionRequest(BaseModel):
@@ -74,56 +74,65 @@ async def start_session(req: StartSessionRequest):
              topics_list = [f"Topic {i+1}" for i in range(9)]
              
         # State Vector Construction for RL
-        # 1. Sort topics by mastery to identify buckets
-        # We need to pass [Avg_Low, Avg_Med, Avg_High] to RL
-        topic_masteries = []
-        for t in topics_list:
-            m = mastery_map.get(t, P_INIT)
-            topic_masteries.append({"topic": t, "mastery": m})
+        # Statically assign topics to structural buckets: Foundational, Intermediate, Advanced
+        n = len(topics_list)
+        k = max(1, n // 3)
+        
+        b0_topics = topics_list[:k]
+        b1_topics = topics_list[k:2*k]
+        b2_topics = topics_list[2*k:]
+        
+        # Helper to get mastery of a specific topic safely
+        def get_topic_mastery(t):
+            return mastery_map.get(t, P_INIT)
             
-        # Sort by mastery ascending
-        topic_masteries.sort(key=lambda x: x["mastery"])
-        
-        # Split into 3 buckets (Low, Med, High)
-        n = len(topic_masteries)
-        k = max(1, n // 3) # approximately n/3 items per bucket
-        
-        # Use simple slicing. 
-        # Bucket 0: 0 to k
-        # Bucket 1: k to 2k
-        # Bucket 2: 2k to end
-        b0 = topic_masteries[:k]
-        b1 = topic_masteries[k:2*k]
-        b2 = topic_masteries[2*k:]
-        
-        def get_avg(lst):
-            if not lst: return 0.5
-            return sum(x["mastery"] for x in lst) / len(lst)
+        def get_avg(bucket_topics):
+            if not bucket_topics: return P_INIT
+            return sum(get_topic_mastery(t) for t in bucket_topics) / len(bucket_topics)
             
-        avg_0 = get_avg(b0)
-        avg_1 = get_avg(b1)
-        avg_2 = get_avg(b2)
+        avg_0 = get_avg(b0_topics)
+        avg_1 = get_avg(b1_topics)
+        avg_2 = get_avg(b2_topics)
         
-        state_vector = [avg_0, avg_1, avg_2]
+        ui_mastery_vector = [avg_0, avg_1, avg_2]
+        
+        # RL State Vector (Local Graph Projection: Anchor + Prereqs + Postreqs)
+        # For a new session, anchor on the first available topic
+        from services.graph_service import graph_engine
+        anchor = topics_list[0] if topics_list else "Unknown"
+        local_topics = await graph_engine.get_local_graph_state_topics(req.subject, anchor)
+        
+        # Rigorously enforce exactly 9 dimensions for PPO compatibility
+        PAD_VALUE = 0.1
+        PAD_NAME = "Padding_Topic"
+        
+        while len(local_topics) < 9:
+            local_topics.append(PAD_NAME)
             
-        # Get Action
+        state_vector = []
+        for t in local_topics:
+            if t == PAD_NAME:
+                state_vector.append(PAD_VALUE)
+            else:
+                state_vector.append(get_topic_mastery(t))
+            
+        # Get Action (Outputs 0-8)
         action = rl_agent.get_next_action(state_vector)
-        bucket_idx = action["bucket_index"]
-        difficulty = action["difficulty"]
+        action_idx = action.get("topic_index", 0)
+        difficulty = action.get("difficulty", "Medium")
         
-        # Select specific topic from the chosen bucket
-        selected_bucket = [b0, b1, b2][bucket_idx]
-        if not selected_bucket:
-             selected_bucket = topic_masteries
-             
-        # Pick random from bucket
-        chosen_item = random.choice(selected_bucket)
-        topic_name = chosen_item["topic"]
-        # Find index in original list for frontend usage
+        # Select specific topic from the local projection window
+        if 0 <= action_idx < 9 and local_topics[action_idx] != PAD_NAME:
+            topic_name = local_topics[action_idx]
+        else:
+            topic_name = anchor # Fallback to anchor if agent hits a pad
+            action_idx = 0
+            
+        # Find index in *global* syllabus list for frontend usage
         try:
             topic_idx_raw = topics_list.index(topic_name)
-        except:
-             topic_idx_raw = 0
+        except ValueError:
+            topic_idx_raw = 0
         
         # Generate Question
         # Use Dummy Context related to Subject
@@ -232,7 +241,7 @@ async def submit_answer(req: SubmitAnswerRequest):
         mastery_map = await db_module.get_student_progress(req.student_id, subject)
         prev_m = mastery_map.get(topic_key, P_INIT)
         
-        new_m = update_bkt(prev_m, correct)
+        new_m = update_bkt(prev_m, score)
         
         await db_module.update_student_progress(req.student_id, subject, topic_key, new_m)
         
@@ -278,45 +287,55 @@ async def submit_answer(req: SubmitAnswerRequest):
             if not topics_list: topics_list = [f"Topic {i+1}" for i in range(9)]
                 
             # State Vector Construction for RL
-            topic_masteries = []
-            for t in topics_list:
-                m = mastery_map_updated.get(t, P_INIT)
-                topic_masteries.append({"topic": t, "mastery": m})
-                
-            topic_masteries.sort(key=lambda x: x["mastery"])
-            n = len(topic_masteries)
+            # Statically assign topics to structural buckets: Foundational, Intermediate, Advanced
+            n = len(topics_list)
             k = max(1, n // 3)
             
-            b0 = topic_masteries[:k]
-            b1 = topic_masteries[k:2*k]
-            b2 = topic_masteries[2*k:]
+            b0_topics = topics_list[:k]
+            b1_topics = topics_list[k:2*k]
+            b2_topics = topics_list[2*k:]
             
-            def get_avg(lst):
-                if not lst: return 0.5
-                return sum(x["mastery"] for x in lst) / len(lst)
+            # Helper to get mastery of a specific topic safely
+            def get_topic_mastery(t):
+                return mastery_map_updated.get(t, P_INIT)
                 
-            avg_0 = get_avg(b0)
-            avg_1 = get_avg(b1)
-            avg_2 = get_avg(b2)
+            def get_avg(bucket_topics):
+                if not bucket_topics: return P_INIT
+                return sum(get_topic_mastery(t) for t in bucket_topics) / len(bucket_topics)
+                
+            avg_0 = get_avg(b0_topics)
+            avg_1 = get_avg(b1_topics)
+            avg_2 = get_avg(b2_topics)
             
-            state_vector = [avg_0, avg_1, avg_2]
+            # RL State Vector (Local Graph Projection: Anchor + Prereqs + Postreqs)
+            from services.graph_service import graph_engine
+            local_topics = await graph_engine.get_local_graph_state_topics(subject, topic_key)
+            
+            # Rigorously enforce exactly 9 dimensions for PPO compatibility
+            PAD_VALUE = 0.1
+            PAD_NAME = "Padding_Topic"
+            
+            while len(local_topics) < 9:
+                local_topics.append(PAD_NAME)
+                
+            state_vector = []
+            for t in local_topics:
+                if t == PAD_NAME:
+                    state_vector.append(PAD_VALUE)
+                else:
+                    state_vector.append(mastery_map_updated.get(t, P_INIT))
                 
             action = rl_agent.get_next_action(state_vector)
-            bucket_idx = action["bucket_index"]
-            next_diff = action["difficulty"]
+            action_idx = action.get("topic_index", 0)
+            next_diff = action.get("difficulty", "Medium")
             
-            selected_bucket = [b0, b1, b2][bucket_idx]
-            if not selected_bucket:
-                selected_bucket = topic_masteries
-                 
-            chosen_item = random.choice(selected_bucket)
-            next_topic_name = chosen_item["topic"]
+            # Select specific topic from the local projection window
+            if 0 <= action_idx < 9 and local_topics[action_idx] != PAD_NAME:
+                next_topic_name = local_topics[action_idx]
+            else:
+                next_topic_name = topic_key # Fallback to anchor if agent hits a pad
         else:
-            # We already have next_topic_name and next_diff from remediation
-            # Just need to calculate the state_vector for the response (UI)
-            mastery_map_updated = await db_module.get_student_progress(req.student_id, subject)
-            # ... (minimal state vector construction for UI)
-            state_vector = [0.5, 0.5, 0.5] # Simplified for now to save tokens
+            pass # Remediation keeps next_topic_name and next_diff
         
         # Need current topics list for index lookup
         session_info = await db_module.get_session_by_id(req.session_id)
@@ -328,6 +347,20 @@ async def submit_answer(req: SubmitAnswerRequest):
             next_topic_idx_raw = topics_list_sync.index(next_topic_name)
         except:
             next_topic_idx_raw = 0
+            
+        # Ensure UI always receives latest 3-bucket averages safely
+        final_mastery_map = await db_module.get_student_progress(req.student_id, subject)
+        n_sync = len(topics_list_sync)
+        k_sync = max(1, n_sync // 3)
+        def final_avg(bucket):
+            if not bucket: return P_INIT
+            return sum(final_mastery_map.get(t, P_INIT) for t in bucket) / len(bucket)
+            
+        ui_mastery_vector = [
+            final_avg(topics_list_sync[:k_sync]),
+            final_avg(topics_list_sync[k_sync:2*k_sync]),
+            final_avg(topics_list_sync[2*k_sync:])
+        ]
             
         # Generate Next Question
         dummy_context = f"Subject: {subject}. Topic: {next_topic_name}."
@@ -343,7 +376,7 @@ async def submit_answer(req: SubmitAnswerRequest):
             "score": score,
             "feedback": feedback,
             "mastery_update": new_m,
-            "current_mastery_vector": state_vector,
+            "current_mastery_vector": ui_mastery_vector,
             "next_question": next_q,
             "next_topic_index": next_topic_idx_raw,
             "next_topic_name": next_topic_name,

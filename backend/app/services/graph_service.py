@@ -99,6 +99,61 @@ class GraphService:
                 return p
         return None
 
+    async def get_local_graph_state_topics(self, subject: str, anchor_topic: str) -> List[str]:
+        """
+        Projects a sliding 9-topic bidirectional window from the graph:
+        Index 0: Anchor Topic
+        Index 1..4: Closest Prerequisites (Backward path)
+        Index 5..8: Closest Post-requisites (Forward path)
+        """
+        if not self.driver: return [anchor_topic]
+        
+        # 1. Get up to 4 prerequisites (BFS order outward from anchor)
+        prereq_query = (
+            "MATCH (s:Subject)-[:HAS_TOPIC]->(t:Topic) "
+            "WHERE toLower(s.name) = toLower($subject) AND toLower(t.name) = toLower($anchor) "
+            "MATCH path = (p:Topic)-[:PREREQUISITE_OF*1..5]->(t) "
+            "WHERE (s)-[:HAS_TOPIC]->(p) "
+            "RETURN p.name as name, length(path) as dist "
+            "ORDER BY dist ASC, name ASC LIMIT 4"
+        )
+        
+        # 2. Get up to 4 post-requisites (BFS order outward from anchor)
+        postreq_query = (
+            "MATCH (s:Subject)-[:HAS_TOPIC]->(t:Topic) "
+            "WHERE toLower(s.name) = toLower($subject) AND toLower(t.name) = toLower($anchor) "
+            "MATCH path = (t)-[:PREREQUISITE_OF*1..5]->(post:Topic) "
+            "WHERE (s)-[:HAS_TOPIC]->(post) "
+            "RETURN post.name as name, length(path) as dist "
+            "ORDER BY dist ASC, name ASC LIMIT 4"
+        )
+        
+        try:
+            with self.driver.session() as session:
+                prereq_result = session.run(prereq_query, subject=subject, anchor=anchor_topic)
+                prereqs = [record["name"] for record in prereq_result]
+                
+                postreq_result = session.run(postreq_query, subject=subject, anchor=anchor_topic)
+                postreqs = [record["name"] for record in postreq_result]
+                
+                # Construct exactly 9-length logical mapping, prioritizing existing nodes
+                state_topics = [anchor_topic]
+                state_topics.extend(prereqs)
+                state_topics.extend(postreqs)
+                
+                # Removing duplicates securely without breaking the anchor at 0
+                unique_topics = []
+                for t in state_topics:
+                    if t not in unique_topics:
+                        unique_topics.append(t)
+                
+                # Return list (it will be padded downstream in learning.py to reach 9)
+                return unique_topics[:9]
+                
+        except Exception as e:
+            logger.error(f"Neo4j get_local_graph_state_topics error: {e}")
+            return [anchor_topic]
+
     async def get_subject_topics(self, subject: str) -> List[str]:
         """
         Returns all topic names for a given subject.

@@ -344,13 +344,31 @@ async def update_password(email: str, password_hash: str):
 
 
 async def get_student_progress(student_id: int, subject: str) -> dict:
-    """Returns {topic: mastery, ...}"""
+    """Returns {topic: mastery, ...} with Ebbinghaus exponential decay applied."""
+    import math
     pool = await get_pool()
     rows = await pool.fetch(
-        "SELECT topic, mastery FROM student_progress WHERE student_id = $1 AND subject = $2",
+        "SELECT topic, mastery, updated_at FROM student_progress WHERE student_id = $1 AND subject = $2",
         student_id, subject
     )
-    return {r['topic']: r['mastery'] for r in rows}
+    
+    result = {}
+    now = datetime.now()
+    for r in rows:
+        mastery = r['mastery']
+        updated_at = r['updated_at']
+        if updated_at:
+            days_elapsed = (now - updated_at).total_seconds() / 86400.0
+            # Exp decay (e.g. 2% decay per day parameter)
+            decayed_m = mastery * math.exp(-0.02 * days_elapsed)
+            # Bound memory so it never fully reaches 0
+            decayed_m = max(0.05, decayed_m) 
+        else:
+            decayed_m = mastery
+            
+        result[r['topic']] = decayed_m
+        
+    return result
 
 
 async def update_student_progress(student_id: int, subject: str, topic: str, new_mastery: float):

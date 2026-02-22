@@ -142,9 +142,9 @@ flowchart TB
 - **Pass/Fail Donut**: Visual breakdown of pass rates.
 
 ### 🧠 Adaptive Learning Tutor
-- **RL Action Selection**: Uses PPO (Proximal Policy Optimization) via Stable Baselines 3 to choose optimal topics.
+- **RL Action Selection**: Uses PPO (Stable Baselines 3) against a localized 9-topic sliding window from the Knowledge Graph.
 - **Knowledge Graph Remediation**: Uses Neo4j to detect "bottleneck" prerequisites when a student fails a concept.
-- **BKT Progression**: Real-time mastery updating using Bayesian Knowledge Tracing.
+- **BKT Progression & Memory Decay**: Real-time mastery updates using bounded EMA and Ebbinghaus exponential decay to simulate forgetting.
 - **Strict Mode Evaluation**: Uses generated question rubrics to ensure university-level grading strictness.
 - **High-Fidelity Skeletons**: Modern shimmer-effect loading states for seamless transitions into AI sessions.
 - **Liquid Glass Feedback**: AI feedback presented in a premium "Crystal Pill" badge UI.
@@ -289,13 +289,13 @@ The backend API is available at `http://localhost:8000`, with the evaluator moun
    
 ### 🧠 Adaptive Learning Flow
 
-1. **Session Start** → System fetches BKT mastery vector and Neo4j knowledge graph.
-2. **Bottleneck Detection** → Checks Neo4j for unmastered prerequisites before selecting new topics.
-3. **RL Action Selection** → PPO Policy chooses optimal topic bucket (Low/Med/High).
-4. **Context Retrieval** → Fetches concepts from syllabus corresponding to chosen topic.
+1. **Session Start** → System fetches mastery vector and local Neo4j knowledge graph.
+2. **Ebbinghaus Decay** → Previous mastery scores naturally decay based on time elapsed since last practice.
+3. **Graph Projection** → Neo4j generates a 9-topic localized sliding window (Anchor, Prereqs, Postreqs).
+4. **RL Action Selection** → PPO Policy chooses optimal topic and difficulty from the local window.
 5. **Adaptive Questioning** → Generated based on dynamic difficulty (Easy/Medium/Hard).
 6. **Student Response** → AI grades strictly using the **Session Rubric**.
-7. **BKT Update** → Mastery probability updated based on performance.
+7. **Mastery Update** → Bounded EMA-style mastery increment ensures smooth UI progression.
 8. **Trajectory Logging** → State/Action/Reward logged for RL policy improvement.
 
 ---
