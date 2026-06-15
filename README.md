@@ -52,54 +52,7 @@ This project provides a **tri-pipeline architecture** for modern educational ass
 
 ## 🏗️ Architecture
 
-```mermaid
-flowchart TB
-    subgraph Docker["🐳 Docker Compose"]
-        subgraph Frontend["🌐 Frontend — Next.js :3000"]
-            direction LR
-            D["Dashboard"]
-            G["Generator"]
-            E["Evaluator"]
-            R["Results"]
-            A["Analytics"]
-        end
-
-        subgraph Backend["⚡ Backend — FastAPI :8000"]
-            direction LR
-            subgraph GenAPI["Generator API"]
-                G1["Syllabus Upload"]
-                G2["RAG Generation"]
-                G3["DOCX Export"]
-            end
-            subgraph EvalAPI["Evaluator API"]
-                E1["Vision PDF Grading"]
-                E2["AI Grading"]
-            end
-            subgraph LearnAPI["Adaptive Tutor API"]
-                L1["RL Policy Engine"]
-                L2["BKT Mastery Tracking"]
-            end
-        end
-
-        subgraph DB["Storage Layer"]
-            direction LR
-            P["🐘 PostgreSQL :5432"]
-            N["🌐 Neo4j Graph :7687"]
-        end
-    end
-
-    subgraph AI["🤖 AI Models & Embeddings"]
-        direction LR
-        Flash["Gemini 2.5 Flash (Primary)"]
-        Embed["Text Embedding 004"]
-        MiniLM["MiniLM-L6-v2 (Local)"]
-    end
-
-    Frontend -->|REST API| Backend
-    Backend -->|asyncpg| P
-    Backend -->|Cypher| N
-    Backend -->|SDK| AI
-```
+![Architecture Diagram](architecture.png)
 
 **Tech Stack:**
 - **Backend:** FastAPI (Python 3.10+), Gemini 2.5 Flash
@@ -113,51 +66,23 @@ flowchart TB
 
 ## ✨ Key Features
 
-### 🎯 Question Generation
-- **Smart Syllabus Parsing**: Extracts units from scanned/digital PDFs
-- **Multi-format Questions**: Generates MCQs with options, Short Answers, and Long Essays
-- **Difficulty Levels**: Easy, Medium, Hard with context-aware generation
-- **LaTeX Support**: Mathematical equations rendered natively in Word
-- **Knowledge Graph Sync**: Automatically parses syllabus prerequisites into Neo4j
-- **Rubric Generation**: Automated marking schemes with keyword extraction
+| 📝 Question Generator | 🔍 Answer Evaluator |
+|---|---|
+| **📄 Smart Syllabus Parsing**<br>Extracts units from digital/scanned PDFs using OCR fallback (Gemini Vision). | **📝 Handwriting OCR & Vision**<br>Evaluates scanned handwritten answer PDFs directly via Gemini Vision. |
+| **🧠 Multi-Format Generation**<br>Generates University-standard MCQs, Short, and Long essays. | **🤖 Automated Grading Rubrics**<br>Matches student submissions against AI-generated scoring criteria. |
+| **📐 LaTeX Equations in DOCX**<br>Converts formulas into native Microsoft Word equations (MathML → OMML). | **📊 Student Roster Identification**<br>Resolves student IDs using filenames, Tesseract OCR, and content analysis. |
+| **🔗 Knowledge Graph Sync**<br>Pipes parsed syllabus dependencies into Neo4j for learning maps. | **📥 Bulk Export & Management**<br>Generates cohort-wide grade breakdowns into Excel spreadsheets. |
 
-### 🔍 Answer Evaluation
-- **Robust Identity Extraction**: Prioritizes Filename > OCR (Tesseract) > Content to identify students.
-- **Vision PDF Grading**: Direct handwritten PDF evaluation via Gemini Vision.
-- **AI Grading**: Context-aware evaluation against model answers.
-- **Authorized Vocabulary**: Forces AI to use syllabus-accurate topic names from Neo4j to prevent hallucination.
-- **Concept Extraction**: Identifies knowledge gaps per student.
-- **Bulk Processing**: Grade entire classes in minutes.
-- **Student Results UI**: Enhanced dashboard with conditional **Max Marks** display (CIA: 1/4/10 marks, Model: 1/5/8 marks).
-- **Excel Reports**: Downloadable results with per-question feedback.
-- **Record Management**: Delete specific evaluation records directly from UI.
-
-### 📊 Performance Analytics
-- **Print-Ready Reports**: Optimised layout for printing charts and insights.
-- **Summary Stats**: Class average, highest/lowest score, pass rate.
-- **Score Distribution**: Histogram showing mark ranges.
-- **Per-Question Analysis**: Bar chart comparing avg vs max per question.
-- **Student Rankings**: Leaderboard with gradient performance bars.
-- **Score Heatmap**: Color-coded student × question grid.
-- **Pass/Fail Donut**: Visual breakdown of pass rates.
-
-### 🧠 Adaptive Learning Tutor
-- **RL Action Selection**: Uses PPO (Stable Baselines 3) against a localized 9-topic sliding window from the Knowledge Graph.
-- **Knowledge Graph Remediation**: Uses Neo4j to detect "bottleneck" prerequisites when a student fails a concept.
-- **BKT Progression & Memory Decay**: Real-time mastery updates using bounded EMA and Ebbinghaus exponential decay to simulate forgetting.
-- **Strict Mode Evaluation**: Uses generated question rubrics to ensure university-level grading strictness.
-- **High-Fidelity Skeletons**: Modern shimmer-effect loading states for seamless transitions into AI sessions.
-- **Liquid Glass Feedback**: AI feedback presented in a premium "Crystal Pill" badge UI.
-- **Manual Progression**: Students review feedback before advancing to the next challenge.
+| 📊 Performance Analytics | 🧠 Adaptive Tutor Engine |
+|---|---|
+| **📈 High-Density Dashboards**<br>Frosted glass, no-scroll interface with class-wide averages and pass rates. | **🎮 Reinforcement Learning (PPO)**<br>Dynamically selects topics and difficulty based on localized Neo4j syllabus graphs. |
+| **🗺️ Student × Concept Heatmaps**<br>Visual color-coded grid mapping question-by-concept student scores. | **⏳ Ebbinghaus Memory Decay**<br>Simulates forgetting curve rates to decay concept mastery over time. |
+| **🍩 Performance Visualizations**<br>Score histograms, leaderboard standings, and pass/fail donut charts. | **💬 Strict Evaluator Badging**<br>Badge indicators showing crystal pills feedback on manual reviews. |
 
 ### 🎨 Modern UI/UX
-- **macOS Liquid Glass**: Premium translucent design with deep backdrop blurs, specular highlights, and pure frosted glass pill navigation.
-- **Dynamic Backgrounds**: Features interactive `Animated Grid Pattern` on the login screen and a Framer Motion-powered `Etheral Shadows` ambient background on the faculty dashboard.
-- **High-Density Dashboards**: Professional, no-scroll layouts ensuring all critical metrics and actions are instantly accessible.
-- **Dark/Light Mode**: Full theme support with dynamically adjusting contrasts and opacity for backgrounds across all pages.
-- **SVG Icon System**: Professional inline SVG icons (no emoji).
-- **Print Optimization**: Dedicated CSS for clean, ink-saving analytics prints.
-- **Responsive Layout**: Mobile-first design with strict breakpoints.
+* **macOS Liquid Glass**: Premium translucent design with deep backdrop blurs, specular highlights, and frosted glass pill navigation.
+* **Dynamic Animations**: Interactive animated grid patterns, loading skeletons, and Framer Motion shadows.
+* **Optimized Layouts**: No-scroll high-density dashboards, full light/dark themes, and print-ready CSS styles.
 
 ---
 
@@ -370,7 +295,7 @@ Use placeholders like `{{subject}}`, `{{Q1}}`, `{{A1}}` for dynamic content.
 
 ## 🗃️ Database Schema
 
-PostgreSQL 16 with 6 tables. Schema is auto-initialized on startup via `schema.sql`.
+PostgreSQL 16 with 9 normalized tables. The relational schema is auto-initialized on startup via `schema.sql` and includes performance indexes on critical lookup fields.
 
 ```mermaid
 erDiagram
@@ -378,56 +303,108 @@ erDiagram
         SERIAL id PK
         VARCHAR email UK
         VARCHAR password
+        TIMESTAMP created_at
+        VARCHAR role
+    }
+    departments {
+        SERIAL id PK
+        VARCHAR value UK
+        VARCHAR label
+    }
+    details {
+        SERIAL id PK
+        VARCHAR department FK
+        JSONB batches
+        JSONB semesters
+        JSONB exams
+        JSONB subjects
     }
     students {
         SERIAL id PK
-        VARCHAR roll_no UK
+        VARCHAR department FK
+        VARCHAR batch
+        VARCHAR roll_no
         VARCHAR name
-        VARCHAR email
+        TIMESTAMP created_at
     }
     question_papers {
         SERIAL id PK
         VARCHAR subject
+        VARCHAR exam_type
+        VARCHAR difficulty
+        TIMESTAMP created_at
         JSONB paper
     }
     evaluations {
         SERIAL id PK
-        VARCHAR roll_no FK
+        VARCHAR roll_no
         VARCHAR exam_id
         JSONB marks
+        JSONB feedback
         DECIMAL total
+        TIMESTAMP timestamp
+        VARCHAR subject
+        VARCHAR batch
+        VARCHAR department FK
+        VARCHAR semester
+        JSONB topics
         VARCHAR exam_type
+    }
+    student_progress {
+        SERIAL id PK
+        INT student_id FK
+        VARCHAR subject
+        VARCHAR topic
+        FLOAT mastery
+        TIMESTAMP updated_at
     }
     learning_sessions {
         SERIAL id PK
         VARCHAR session_id UK
         INT student_id FK
         VARCHAR subject
+        TIMESTAMP start_time
+        VARCHAR exam_id
     }
     learning_logs {
         SERIAL id PK
         VARCHAR session_id FK
         INT student_id FK
+        TIMESTAMP timestamp
         VARCHAR topic
+        VARCHAR difficulty
         FLOAT score
+        TEXT feedback
+        FLOAT mastery_before
+        FLOAT mastery_after
         INT action_taken
+        FLOAT reward
     }
 
-    users ||--o{ learning_sessions : "starts"
-    learning_sessions ||--o{ learning_logs : "records"
-    users ||--o{ learning_logs : "records"
-    students ||--o{ evaluations : "submits"
+    departments ||--o{ details : "defines_metadata_for"
+    departments ||--o{ students : "enrolls"
+    departments ||--o{ evaluations : "associates_exams"
+    users ||--o{ student_progress : "has_bkt_mastery"
+    users ||--o{ learning_sessions : "attends"
+    learning_sessions ||--o{ learning_logs : "creates_trajectory"
+    users ||--o{ learning_logs : "logs_rewards"
 ```
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `users` | Auth | `email`, `password` |
-| `students` | Roster | `roll_no`, `email` (linked to user) |
-| `learning_sessions` | Adaptive Sessions | `session_id`, `student_id` |
-| `learning_logs` | RL Training Data | `session_id`, `topic`, `score`, `reward` |
-| `student_progress` | Mastery Map | `student_id`, `topic`, `mastery` |
-| `question_papers` | Generated Papers | `subject`, `paper` (JSONB) |
-| `evaluations` | Grading Results | `roll_no`, `exam_id`, `total`, `exam_type` |
+### Table Dictionary Reference
+
+| Table Name | Purpose | Primary & Foreign Keys | Key Schema Details / Constraints |
+|:---|:---|:---|:---|
+| **`users`** | Core authentication and user profile data | `id` (PK) | Role default 'faculty'; email is unique and indexed. |
+| **`departments`** | Dropdown options mapping department codes to labels | `id` (PK), `value` (UK) | e.g. `value: 'BBA'`, `label: 'Bachelor of Business Admin'` |
+| **`details`** | Config maps for batches, semesters, exams, and syllabus | `id` (PK), `department` (FK) | Config stored as JSONB. References `departments(value)`. |
+| **`students`** | Class roster mapping students to their cohort | `id` (PK), `department` (FK) | Composite unique constraint: `(department, batch, roll_no)`. |
+| **`question_papers`** | Saved generated exam question documents | `id` (PK) | Structure of generated questions stored in a `JSONB` document. |
+| **`evaluations`** | Student test grades, scores, and rubrics feedback | `id` (PK), `department` (FK) | Scores/feedbacks maps saved in dynamic `JSONB` columns. |
+| **`student_progress`** | Real-time Bayesian Knowledge Tracing (BKT) topic mastery | `id` (PK), `student_id` (FK) | Composite unique constraint: `(student_id, subject, topic)`. |
+| **`learning_sessions`** | Tracks adaptive tutor session states | `id` (PK), `student_id` (FK) | `session_id` is unique and indexed. References `users(id)`. |
+| **`learning_logs`** | RL trajectory metrics (State-Action-Reward tuples) | `id` (PK), `session_id` (FK), `student_id` (FK) | Trajectory logs for trained policy improvement. |
+
+---
 
 ---
 
